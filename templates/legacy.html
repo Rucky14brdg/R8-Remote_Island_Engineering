@@ -1,0 +1,1382 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>離島工学データベース</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    .markdown-body h1 { font-size: 1.35rem; font-weight: 700; margin-top: 1.2rem; margin-bottom: 0.5rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.25rem; }
+    .markdown-body h2 { font-size: 1.15rem; font-weight: 700; margin-top: 1rem; margin-bottom: 0.4rem; color: #0f172a; }
+    .markdown-body h3 { font-size: 1rem; font-weight: 600; margin-top: 0.8rem; margin-bottom: 0.3rem; color: #1e293b; }
+    .markdown-body p { margin-bottom: 0.75rem; line-height: 1.75; }
+    .markdown-body ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 0.75rem; }
+    .markdown-body ol { list-style-type: decimal; padding-left: 1.5rem; margin-bottom: 0.75rem; }
+    .markdown-body code { background: #f1f5f9; padding: 0.15rem 0.4rem; border: 1px solid #e2e8f0; font-size: 0.88em; }
+    .markdown-body pre { background: #0f172a; color: #f8fafc; padding: 1rem; overflow-x: auto; margin-bottom: 0.85rem; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+  <!-- ==========================================
+       ヘッダー（デザイン枠は四角く border-b、クリックできるボタンは丸く rounded-full）
+       ========================================== -->
+  <header class="bg-white border-b border-slate-300 sticky top-0 z-30">
+    <div class="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
+      <div class="flex items-center gap-6">
+        <button onclick="navigate('articles')" class="font-bold text-base text-slate-900 hover:text-blue-600 transition">
+          離島工学DB
+        </button>
+
+        <nav class="hidden md:flex items-center gap-1.5">
+          <button onclick="navigate('articles')" id="nav-articles" class="px-4 py-1.5 text-sm font-medium rounded-full bg-slate-900 text-white">
+            記事一覧
+          </button>
+          <button onclick="navigate('explore')" id="nav-explore" class="px-4 py-1.5 text-sm font-medium rounded-full text-slate-600 border border-slate-300 hover:border-slate-900 bg-white">
+            探す・調べる
+          </button>
+          <button onclick="navigate('ai')" id="nav-ai" class="px-4 py-1.5 text-sm font-medium rounded-full text-slate-600 border border-slate-300 hover:border-slate-900 bg-white">
+            AIと探索する
+          </button>
+        </nav>
+      </div>
+
+      <!-- 右側：ログイン専用メニュー ＆ ユーザ切替（クリック要素なので丸い） -->
+      <div class="flex items-center gap-2">
+        <div id="logged-in-actions" class="hidden flex items-center gap-1.5">
+          <button onclick="navigate('mypage')" id="nav-mypage"
+            class="px-3.5 py-1.5 text-xs font-medium rounded-full border border-slate-300 bg-white text-slate-700 hover:border-slate-900">
+            マイページ
+          </button>
+          <button onclick="openRegisterModal()"
+            class="px-3.5 py-1.5 text-xs font-medium rounded-full border border-slate-300 bg-white text-slate-700 hover:border-slate-900">
+            ＋ 基本情報
+          </button>
+        </div>
+
+        <div class="flex items-center gap-1.5 bg-white border border-slate-300 px-3 py-1.5 rounded-full hover:border-slate-900 transition">
+          <span id="login-indicator" class="w-2 h-2 rounded-full bg-slate-400"></span>
+          <select id="user-switcher" onchange="handleUserSwitch(this.value)"
+            class="text-xs font-medium bg-transparent text-slate-700 focus:outline-none cursor-pointer">
+            <option value="">非ログイン</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- トースト通知（デザイン枠なので四角） -->
+  <div id="toast" class="hidden fixed bottom-5 right-5 bg-slate-900 text-white px-4 py-2.5 border border-slate-700 shadow-lg text-xs z-50"></div>
+
+  <!-- ==========================================
+       メインコンテンツ領域
+       ========================================== -->
+  <main class="max-w-5xl w-full mx-auto px-4 py-6 flex-1 flex flex-col">
+
+    <!-- ==========================================
+         VIEW 1 (HOME): 記事一覧（ニュース・発表）
+         ========================================== -->
+    <section id="view-articles" class="space-y-6">
+      <!-- セクションヘッダー枠（デザイン上の枠＝四角い） -->
+      <div class="bg-white p-5 border border-slate-300 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 class="text-lg font-bold text-slate-900">記事一覧</h1>
+          <p class="text-xs text-slate-500 mt-0.5">
+            離島工学に関するニュース・発表・出来事の一覧
+          </p>
+        </div>
+        <!-- 記事を書くボタン（ログイン時のみ表示、クリック要素なので丸い） -->
+        <button onclick="openWriteArticle()" id="btn-write-in-articles"
+          class="hidden px-4 py-1.5 text-xs font-medium rounded-full bg-slate-900 text-white hover:bg-slate-800">
+          記事を書く
+        </button>
+      </div>
+
+      <!-- 記事一覧（各記事カードはクリックできるので丸い枠） -->
+      <div id="articles-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+
+      <!-- 記事詳細リーダー（読むためのデザイン枠＝四角い枠） -->
+      <div id="article-reader" class="hidden bg-white p-6 sm:p-8 border border-slate-300 space-y-5">
+        <div class="flex items-start justify-between gap-4 border-b border-slate-200 pb-4">
+          <div class="space-y-1.5">
+            <div class="flex items-center gap-2.5">
+              <span id="reader-date" class="text-xs text-slate-400 mono"></span>
+            </div>
+            <h2 id="reader-title" class="text-xl font-bold text-slate-900"></h2>
+            <div id="reader-authors" class="text-xs text-slate-600"></div>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <button id="reader-edit-btn" class="hidden px-3.5 py-1 text-xs border border-slate-300 hover:border-slate-900 rounded-full">編集</button>
+            <button onclick="document.getElementById('article-reader').classList.add('hidden')"
+              class="px-3.5 py-1 text-xs text-slate-600 border border-slate-300 hover:border-slate-900 rounded-full">閉じる</button>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-1.5" id="reader-related"></div>
+        <div id="reader-body" class="markdown-body text-sm text-slate-800 pt-2"></div>
+      </div>
+    </section>
+
+
+    <!-- ==========================================
+         VIEW 2: 探す・調べる（検索・一覧）
+         ========================================== -->
+    <section id="view-explore" class="hidden space-y-6">
+      <!-- 検索パネル外枠（デザイン枠＝四角い） -->
+      <div class="bg-white p-5 border border-slate-300 space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 class="text-lg font-bold text-slate-900">地域・課題・研究・資源・根拠資料を調べる</h1>
+            <p class="text-xs text-slate-500 mt-0.5">カードをクリックすると詳細ページを開きます</p>
+          </div>
+          <button onclick="navigate('ai')" class="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium rounded-full">
+            AIと探索する →
+          </button>
+        </div>
+
+        <div>
+          <input type="text" id="explore-search" oninput="renderExploreView()"
+            placeholder="地域、課題、研究、技術、人物を検索..."
+            class="w-full px-4 py-2 text-sm bg-slate-50 border border-slate-300 focus:outline-none focus:bg-white focus:border-slate-900" />
+        </div>
+
+        <!-- カテゴリ選択ボタン群（クリック要素＝丸い） -->
+        <div class="flex flex-wrap gap-1.5" id="category-pills"></div>
+      </div>
+
+      <!-- 結果一覧（各グループの外枠は四角、中のクリックできる項目カードは丸い） -->
+      <div id="explore-results" class="space-y-6"></div>
+    </section>
+
+
+    <!-- ==========================================
+         VIEW 3: 基本情報の詳細ページ
+         ========================================== -->
+    <section id="view-entity-detail" class="hidden space-y-6">
+      <!-- 上部操作バー（すべてクリックできるボタンなので丸い） -->
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <button onclick="navigate('explore')" class="px-3.5 py-1.5 text-xs text-slate-700 bg-white border border-slate-300 hover:border-slate-900 rounded-full">
+          ← 探す・調べるに戻る
+        </button>
+        <div class="flex items-center gap-2">
+          <button onclick="askAiAboutEntity()" class="px-3.5 py-1.5 bg-white border border-slate-300 hover:border-slate-900 text-slate-800 text-xs font-medium rounded-full">
+            AIにこの項目を聞く
+          </button>
+          <div id="detail-login-controls" class="hidden flex items-center gap-2">
+            <button onclick="toggleWikiEditModal()" class="px-3.5 py-1.5 text-xs bg-white border border-slate-300 hover:border-slate-900 rounded-full font-medium">
+              解説・つながりを編集
+            </button>
+            <button onclick="openWriteArticleForCurrentEntity()" class="px-4 py-1.5 text-xs bg-slate-900 text-white hover:bg-slate-800 rounded-full font-medium">
+              関連記事を書く
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- タイトル・概要・Wiki解説の枠（デザイン上の枠＝四角い） -->
+      <div class="bg-white p-6 border border-slate-300 space-y-4">
+        <div class="border-b border-slate-200 pb-4">
+          <span id="entity-detail-badge" class="inline-block px-2 py-0.5 text-xs font-medium bg-slate-100 text-slate-700 border border-slate-300 mb-2"></span>
+          <h1 id="entity-detail-name" class="text-2xl font-bold text-slate-900"></h1>
+          <p id="entity-detail-summary" class="text-sm text-slate-600 mt-1"></p>
+          <dl id="entity-detail-attributes" class="mt-3 space-y-2 text-xs text-slate-600"></dl>
+        </div>
+
+        <div>
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">基本解説（Wiki）</h2>
+          <div id="entity-detail-wiki" class="markdown-body text-sm text-slate-700 bg-slate-50 p-4 border border-slate-200"></div>
+        </div>
+      </div>
+
+      <!-- 下段2カラム：外枠はデザイン枠なので四角、中のクリック要素は丸い -->
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+        <div class="md:col-span-5 bg-white p-5 border border-slate-300 space-y-4">
+          <h2 class="font-bold text-sm text-slate-900 border-b border-slate-200 pb-2">つながりのある項目</h2>
+          <div id="entity-detail-relations" class="space-y-4"></div>
+        </div>
+
+        <div class="md:col-span-7 space-y-6">
+          <div class="bg-white p-5 border border-slate-300 space-y-3">
+            <h2 class="font-bold text-sm text-slate-900 border-b border-slate-200 pb-2">関連する記事・実践記録</h2>
+            <div id="entity-detail-articles" class="space-y-2.5"></div>
+          </div>
+
+          <div class="bg-white p-5 border border-slate-300 space-y-2.5">
+            <h2 class="font-bold text-sm text-slate-900 border-b border-slate-200 pb-2">外部リンク</h2>
+            <div id="entity-detail-extlinks" class="space-y-2"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ==========================================
+         VIEW 4: AIと探索する（外枠なしのLLM対話サービス風UI）
+         ========================================== -->
+    <section id="view-ai" class="hidden max-w-3xl w-full mx-auto flex-1 flex flex-col">
+      <!-- 上部：モデル選択と接続状態 -->
+      <div class="flex items-center justify-between pb-3 mb-2 border-b border-slate-200 text-xs text-slate-600">
+        <div class="flex items-center gap-2.5">
+          <span class="font-medium text-slate-700">モデル:</span>
+          <input type="text" id="ai-model-input" value="qwen3.5:4b" onchange="checkOllamaStatus()"
+            class="px-3 py-1 bg-white border border-slate-300 text-slate-800 mono focus:outline-none focus:border-slate-900 w-36" />
+          <span id="ollama-status-text">確認中...</span>
+        </div>
+        <button type="button" onclick="checkOllamaStatus()"
+          class="px-3 py-1 bg-white border border-slate-300 hover:border-slate-900 rounded-full text-slate-700">
+          再確認
+        </button>
+      </div>
+
+      <!-- 対話ストリーム（四角い外枠で囲わずオープンに表示） -->
+      <div id="ai-messages" class="flex-1 overflow-y-auto space-y-6 py-4">
+        <div class="text-sm text-slate-500">
+          離島工学データベースに登録されている知識（RDF）と記事をもとに回答します。気になっている課題や技術、研究について質問してください。
+        </div>
+      </div>
+
+      <!-- 下部：入力バー -->
+      <form onsubmit="handleAiSubmit(event)" class="sticky bottom-4 pt-2">
+        <div class="flex items-center bg-white border border-slate-300 rounded-full px-4 py-1.5 shadow-sm focus-within:border-slate-900 transition">
+          <input type="text" id="ai-question-input" placeholder="メッセージを入力..." required
+            class="flex-1 bg-transparent py-1.5 text-sm text-slate-800 focus:outline-none" />
+          <button type="submit" id="ai-submit-btn"
+            class="ml-2 px-5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium rounded-full transition">
+            送信
+          </button>
+        </div>
+      </form>
+    </section>
+
+
+    <!-- ==========================================
+         VIEW 5: マイページ（外枠コンテナは四角、クリックできるボタン・カードは丸い）
+         ========================================== -->
+    <section id="view-mypage" class="hidden space-y-6">
+      <!-- プロフィール枠（四角） -->
+      <div class="bg-white p-6 border border-slate-300 space-y-5">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-4">
+          <div class="flex items-center gap-3.5">
+            <div class="w-11 h-11 bg-slate-900 text-white flex items-center justify-center text-base font-bold" id="mypage-avatar"></div>
+            <div>
+              <h1 id="mypage-username" class="text-xl font-bold text-slate-900"></h1>
+              <p id="mypage-affil-text" class="text-xs text-slate-500 mt-0.5"></p>
+            </div>
+          </div>
+          <button onclick="openEntityDetail(currentUser)" class="px-4 py-1.5 text-xs bg-white border border-slate-300 hover:border-slate-900 rounded-full font-medium">
+            公開プロフィールを見る
+          </button>
+        </div>
+
+        <form onsubmit="handleSaveMyProfile(event)" class="grid grid-cols-1 md:grid-cols-12 gap-4">
+          <div class="md:col-span-4 space-y-3">
+            <div>
+              <label class="block text-xs text-slate-600 mb-1">所属研究室・組織</label>
+              <input type="text" id="mp-lab" list="datalist-Laboratory" placeholder="例: 田房研究室"
+                class="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-300 focus:bg-white focus:outline-none focus:border-slate-900" />
+            </div>
+            <div>
+              <label class="block text-xs text-slate-600 mb-1">身分・立場</label>
+              <input type="text" id="mp-status" list="datalist-Status" placeholder="例: 学生 / 教員"
+                class="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-300 focus:bg-white focus:outline-none focus:border-slate-900" />
+            </div>
+            <div>
+              <label class="block text-xs text-slate-600 mb-1">外部リンク (GitHub等, カンマ区切り)</label>
+              <input type="text" id="mp-extlinks" placeholder="https://github.com/..."
+                class="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 mono focus:bg-white focus:outline-none focus:border-slate-900" />
+            </div>
+          </div>
+          <div class="md:col-span-8 flex flex-col justify-between space-y-3">
+            <div>
+              <label class="block text-xs text-slate-600 mb-1">自己紹介・研究関心（Markdown可）</label>
+              <textarea id="mp-wiki" rows="4" placeholder="自身の研究テーマや関心のある地域課題などを記入..."
+                class="w-full p-3 text-sm bg-slate-50 border border-slate-300 focus:bg-white focus:outline-none focus:border-slate-900"></textarea>
+            </div>
+            <div class="flex justify-end">
+              <button type="submit" class="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium rounded-full">
+                プロフィールを保存
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <!-- 下段：研究の登録枠（四角） ＆ 一覧枠（四角、中のクリック項目は丸） -->
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+        <div class="md:col-span-6 bg-white p-5 border border-slate-300 space-y-4">
+          <div class="border-b border-slate-200 pb-2">
+            <h2 class="font-bold text-base text-slate-900">研究・実践プロジェクトを記録する</h2>
+            <p class="text-xs text-slate-500 mt-0.5">入力した対象地域・課題・技術とのつながりが自動構築されます</p>
+          </div>
+
+          <form onsubmit="handleSaveMyResearch(event)" class="space-y-3">
+            <div>
+              <label class="block text-xs text-slate-600 mb-1">研究・実践プロジェクト名 *</label>
+              <input type="text" id="res-name" list="datalist-Research" required
+                placeholder="例: 離島困難道路における..."
+                class="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-300 focus:bg-white focus:outline-none focus:border-slate-900" />
+            </div>
+            <div>
+              <label class="block text-xs text-slate-600 mb-1">対象とする地域・現場（カンマ区切り）</label>
+              <input type="text" id="res-targets" list="datalist-Target" placeholder="例: 保育所"
+                class="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-300 focus:bg-white focus:outline-none focus:border-slate-900" />
+            </div>
+            <div>
+              <label class="block text-xs text-slate-600 mb-1">解決を試みる地域課題（カンマ区切り）</label>
+              <input type="text" id="res-issues" list="datalist-Issue" placeholder="例: 坂の離合問題, 駐車場に迷う問題"
+                class="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-300 focus:bg-white focus:outline-none focus:border-slate-900" />
+            </div>
+            <div>
+              <label class="block text-xs text-slate-600 mb-1">用いる技術・手法（カンマ区切り）</label>
+              <input type="text" id="res-techs" list="datalist-Technology" placeholder="例: LPWA, ESP, 信号制御"
+                class="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-300 focus:bg-white focus:outline-none focus:border-slate-900" />
+            </div>
+            <div>
+              <label class="block text-xs text-slate-600 mb-1">関連する外部リンク（カンマ区切り）</label>
+              <input type="text" id="res-extlinks" placeholder="https://github.com/..."
+                class="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 mono focus:bg-white focus:outline-none focus:border-slate-900" />
+            </div>
+            <div>
+              <label class="block text-xs text-slate-600 mb-1">研究の概要・解説（Markdown可）</label>
+              <textarea id="res-wiki" rows="3" placeholder="この研究の目的や概要..."
+                class="w-full p-2.5 text-sm bg-slate-50 border border-slate-300 focus:bg-white focus:outline-none focus:border-slate-900"></textarea>
+            </div>
+            <button type="submit" class="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium rounded-full">
+              自分の研究・実践として保存
+            </button>
+          </form>
+        </div>
+
+        <div class="md:col-span-6 space-y-6">
+          <div class="bg-white p-5 border border-slate-300 space-y-3">
+            <h2 class="font-bold text-sm text-slate-900 border-b border-slate-200 pb-2">担当している研究・実践</h2>
+            <div id="mypage-research-list" class="space-y-2.5"></div>
+          </div>
+
+          <div class="bg-white p-5 border border-slate-300 space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-200 pb-2">
+              <h2 class="font-bold text-sm text-slate-900">執筆した記事</h2>
+              <button onclick="openWriteArticle()" class="px-3 py-1 text-xs bg-slate-900 text-white rounded-full">＋ 記事を書く</button>
+            </div>
+            <div id="mypage-articles-list" class="space-y-2.5"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ==========================================
+         VIEW 6: 記事執筆画面（ニュース・発表の4項目に整理）
+         ========================================== -->
+    <section id="view-write-article" class="hidden max-w-3xl mx-auto w-full">
+      <div class="bg-white p-6 border border-slate-300 space-y-5">
+        <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+          <h1 class="text-lg font-bold text-slate-900">記事を書く</h1>
+          <button onclick="navigate('articles')" class="px-3.5 py-1 text-xs text-slate-600 border border-slate-300 hover:border-slate-900 rounded-full">キャンセル</button>
+        </div>
+
+        <form onsubmit="handleSaveArticleForm(event)" class="space-y-4">
+          <input type="hidden" id="write-art-id" value="" />
+
+          <!-- 1. 記事のタイトル -->
+          <div>
+            <label class="block text-xs text-slate-600 mb-1">記事のタイトル *</label>
+            <input type="text" id="write-art-title" required placeholder="記事のタイトルを入力..."
+              class="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-300 focus:bg-white focus:outline-none focus:border-slate-900" />
+          </div>
+
+          <!-- 2. 著者 -->
+          <div>
+            <label class="block text-xs text-slate-600 mb-1">著者 *</label>
+            <input type="text" id="write-art-author" list="datalist-All" required placeholder="著者名を入力..."
+              class="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-300 focus:bg-white focus:outline-none focus:border-slate-900" />
+          </div>
+
+          <!-- 3. 関連する項目 -->
+          <div>
+            <label class="block text-xs text-slate-600 mb-1">関連する項目（カンマ区切り）</label>
+            <input type="text" id="write-art-related" list="datalist-All" placeholder="例: 保育所, 坂の離合問題, LPWA"
+              class="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-300 focus:bg-white focus:outline-none focus:border-slate-900" />
+            <div class="mt-1.5 flex flex-wrap gap-1" id="write-related-suggestions"></div>
+          </div>
+
+          <!-- 4. 本文 -->
+          <div>
+            <label class="block text-xs text-slate-600 mb-1">本文 (Markdown) *</label>
+            <textarea id="write-art-content" rows="15" required placeholder="記事の本文を入力..."
+              class="w-full p-3.5 text-sm bg-slate-50 border border-slate-300 mono leading-relaxed focus:bg-white focus:outline-none focus:border-slate-900"></textarea>
+          </div>
+
+          <div class="flex justify-end pt-2">
+            <button type="submit" class="px-6 py-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium rounded-full">
+              公開・保存する
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+
+    <!-- ==========================================
+         VIEW 7: 裏側の Turtle (.ttl) ビューア/エディタ
+         ========================================== -->
+    <section id="view-turtle" class="hidden">
+      <div class="bg-white p-5 border border-slate-300 space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
+          <div>
+            <h2 class="font-bold text-base text-slate-900">RDF / Turtle データ (<code>data/knowledge.ttl</code>)</h2>
+            <p class="text-xs text-slate-500">直接編集して保存することも可能です</p>
+          </div>
+          <button onclick="handleSaveRawTurtle()" class="px-5 py-2 bg-slate-900 text-white text-xs font-medium rounded-full">
+            変更を保存
+          </button>
+        </div>
+        <div id="turtle-err-msg" class="hidden p-3 bg-red-50 text-red-700 text-xs border border-red-300 mono"></div>
+        <textarea id="raw-turtle-textarea" rows="22"
+          class="w-full p-4 bg-slate-900 text-emerald-300 text-xs mono leading-relaxed focus:outline-none"></textarea>
+      </div>
+    </section>
+
+  </main>
+
+
+  <!-- ==========================================
+       モーダル：基本情報の追加・編集（モーダル枠は四角、ボタンは丸）
+       ========================================== -->
+  <div id="modal-register" class="hidden fixed inset-0 bg-slate-900/40 z-40 flex items-center justify-center p-4">
+    <div class="bg-white border border-slate-400 max-w-lg w-full p-6 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+        <h3 class="font-bold text-base text-slate-900" id="modal-reg-title">基本情報を追加する</h3>
+        <button onclick="closeRegisterModal()" class="px-3 py-1 text-slate-600 border border-slate-300 hover:border-slate-900 rounded-full text-xs">閉じる</button>
+      </div>
+
+      <form onsubmit="handleQuickRegisterEntity(event)" class="space-y-3.5">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-slate-600 mb-1">種類</label>
+            <select id="reg-class" onchange="updateRegFormHelper()" class="w-full px-3.5 py-2 text-sm bg-white border border-slate-300 rounded-full focus:outline-none cursor-pointer">
+              <option value="Target">地域・現場（対象）</option>
+              <option value="Issue">地域課題（イシュー）</option>
+              <option value="Technology">技術・手法</option>
+              <option value="Research">研究・実践プロジェクト</option>
+              <option value="Laboratory">研究室・組織</option>
+              <option value="Resource">資源（設備・材料・知識）</option>
+              <option value="Goal">目標・計画</option>
+              <option value="Result">実施実績・評価結果</option>
+              <option value="Participation">活動内の役割</option>
+              <option value="Source">根拠資料</option>
+              <option value="Evidence">出典付き記述</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs text-slate-600 mb-1">名称 *</label>
+            <input type="text" id="reg-id" required placeholder="例: 保育所 / 坂の離合問題"
+              class="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-300 focus:bg-white focus:outline-none focus:border-slate-900" />
+          </div>
+        </div>
+
+        <div id="reg-schema-fields" class="space-y-3"></div>
+
+        <div>
+          <label class="block text-xs text-slate-600 mb-1">一言概要（任意）</label>
+          <input type="text" id="reg-summary" placeholder="短い説明"
+            class="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-300 focus:bg-white focus:outline-none focus:border-slate-900" />
+        </div>
+
+        <div>
+          <label class="block text-xs text-slate-600 mb-1">基本解説（Wiki / Markdown可、任意）</label>
+          <textarea id="reg-wiki" rows="5" placeholder="詳しい説明や背景..."
+            class="w-full p-3 text-sm bg-slate-50 border border-slate-300 focus:bg-white focus:outline-none focus:border-slate-900"></textarea>
+        </div>
+
+        <div>
+          <label class="block text-xs text-slate-600 mb-1">外部リンク（カンマ区切り）</label>
+          <input type="text" id="reg-extlinks" placeholder="https://..."
+            class="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 mono focus:bg-white focus:outline-none focus:border-slate-900" />
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeRegisterModal()" class="px-4 py-1.5 text-xs text-slate-600 border border-slate-300 hover:border-slate-900 rounded-full">キャンセル</button>
+          <button type="submit" class="px-5 py-1.5 bg-slate-900 text-white text-xs font-medium rounded-full">保存する</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- ==========================================
+       フッター
+       ========================================== -->
+  <footer class="bg-white border-t border-slate-300 mt-12 py-4">
+    <div class="max-w-5xl mx-auto px-4 flex flex-wrap items-center justify-between text-xs text-slate-500 gap-2">
+      <div>離島工学データベース</div>
+      <div class="flex items-center gap-4">
+        <span id="footer-stats"></span>
+        <button onclick="navigate('turtle')" class="px-3 py-1 border border-slate-300 hover:border-slate-900 rounded-full text-slate-700 mono">
+          knowledge.ttl を確認・編集
+        </button>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Datalists -->
+  <datalist id="datalist-All"></datalist>
+  <datalist id="datalist-Target"></datalist>
+  <datalist id="datalist-Issue"></datalist>
+  <datalist id="datalist-Research"></datalist>
+  <datalist id="datalist-Technology"></datalist>
+  <datalist id="datalist-Laboratory"></datalist>
+  <datalist id="datalist-Status"></datalist>
+
+  <script>
+    let appData = { classes: [], entities: [], users: [], articles: [], triples: [], raw_turtle: "" };
+    let currentUser = "";
+    let currentView = "articles";
+    let selectedCategoryFilter = "";
+    let currentDetailEntityId = "";
+
+    const ARTICLE_TEMPLATES = {
+      "研究・実践記事": `## 背景・対象とした課題\n\n## 実施した方法・用いた技術\n\n## 結果と得られた実践知\n\n## 今後の展望\n`,
+      "ニュース・発表": `## 概要\n\n## 詳細内容\n\n## 関連情報・出典\n`,
+      "Wiki的整理": `## 概要・定義\n\n## 特徴・背景\n\n## 関連する取り組み・課題\n`
+    };
+
+    function showToast(msg) {
+      const el = document.getElementById("toast");
+      el.textContent = msg;
+      el.classList.remove("hidden");
+      setTimeout(() => el.classList.add("hidden"), 2800);
+    }
+
+    function escapeHtml(str) {
+      return String(str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    async function loadAllData() {
+      const res = await fetch("/api/data");
+      appData = await res.json();
+      const classSelect = document.getElementById("reg-class");
+      const priorClass = classSelect.value;
+      classSelect.innerHTML = appData.classes.filter(c => !["Article", "ExternalLink"].includes(c.id))
+        .map(c => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.label)}</option>`).join("");
+      classSelect.value = priorClass || "Target";
+      updateUserSwitcher();
+      updateDatalists();
+      document.getElementById("raw-turtle-textarea").value = appData.raw_turtle || "";
+      const nonArtCount = appData.entities.filter(e => !e.types.includes("Article") && !e.is_external).length;
+      document.getElementById("footer-stats").textContent =
+        `登録項目 ${nonArtCount} / 記事 ${appData.articles.length}`;
+
+      renderCurrentView();
+    }
+
+    function updateUserSwitcher() {
+      const sel = document.getElementById("user-switcher");
+      const users = appData.users || [];
+      let html = `<option value="">非ログイン</option>`;
+      users.forEach(u => {
+        html += `<option value="${escapeHtml(u.id)}">${escapeHtml(u.id)}</option>`;
+      });
+      html += `<option value="__NEW_USER__">＋ 新規ユーザ登録...</option>`;
+      sel.innerHTML = html;
+      if (currentUser && users.some(u => u.id === currentUser)) {
+        sel.value = currentUser;
+      } else {
+        currentUser = "";
+        sel.value = "";
+      }
+      applyLoginStateUI();
+    }
+
+    async function handleUserSwitch(val) {
+      if (val === "__NEW_USER__") {
+        const name = prompt("新規登録する氏名（ユーザ名）を入力してください:");
+        if (name && name.trim()) {
+          const cleanName = name.trim().replace(/^:/, "");
+          await fetch("/api/entity", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              entity_id: cleanName,
+              entity_class: "User",
+              summary: "",
+              wiki_content: "",
+              relations: [],
+              external_links: []
+            })
+          });
+          currentUser = cleanName;
+          showToast(`「${cleanName}」を登録し、ログインしました`);
+          await loadAllData();
+          navigate("mypage");
+          return;
+        } else {
+          document.getElementById("user-switcher").value = currentUser;
+          return;
+        }
+      }
+      currentUser = val;
+      applyLoginStateUI();
+      if (currentUser) {
+        showToast(`「${currentUser}」としてログインしました`);
+      } else {
+        showToast("非ログインモードに切り替えました");
+        if (currentView === "mypage" || currentView === "write-article") {
+          navigate("articles");
+        }
+      }
+      renderCurrentView();
+    }
+
+    function applyLoginStateUI() {
+      const isLogged = Boolean(currentUser);
+      document.getElementById("logged-in-actions").classList.toggle("hidden", !isLogged);
+      document.getElementById("detail-login-controls").classList.toggle("hidden", !isLogged);
+      const writeBtnInArticles = document.getElementById("btn-write-in-articles");
+      if (writeBtnInArticles) writeBtnInArticles.classList.toggle("hidden", !isLogged);
+      document.getElementById("login-indicator").className =
+        isLogged ? "w-2 h-2 rounded-full bg-emerald-500" : "w-2 h-2 rounded-full bg-slate-400";
+    }
+
+    function updateDatalists() {
+      const byClass = { Target: [], Issue: [], Research: [], Technology: [], Laboratory: [], Status: [], All: [] };
+      appData.entities.forEach(e => {
+        if (e.is_external || e.types.includes("Article")) return;
+        byClass.All.push(e.id);
+        e.types.forEach(t => {
+          if (byClass[t]) byClass[t].push(e.id);
+        });
+      });
+      Object.entries(byClass).forEach(([k, arr]) => {
+        const dl = document.getElementById(`datalist-${k}`);
+        if (dl) dl.innerHTML = arr.map(v => `<option value="${escapeHtml(v)}"></option>`).join("");
+      });
+    }
+
+    function navigate(viewName) {
+      currentView = viewName;
+      ["articles", "explore", "entity-detail", "ai", "mypage", "write-article", "turtle"].forEach(v => {
+        document.getElementById(`view-${v}`).classList.toggle("hidden", v !== viewName);
+      });
+      ["articles", "explore", "ai"].forEach(nav => {
+        const btn = document.getElementById(`nav-${nav}`);
+        if (!btn) return;
+        if (nav === viewName || (viewName === "entity-detail" && nav === "explore")) {
+          btn.className = "px-4 py-1.5 text-sm font-medium rounded-full bg-slate-900 text-white";
+        } else {
+          btn.className = "px-4 py-1.5 text-sm font-medium rounded-full text-slate-600 border border-slate-300 hover:border-slate-900 bg-white";
+        }
+      });
+      renderCurrentView();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function renderCurrentView() {
+      if (currentView === "articles") renderArticlesView();
+      else if (currentView === "explore") renderExploreView();
+      else if (currentView === "entity-detail") renderEntityDetailView();
+      else if (currentView === "mypage") renderMyPageView();
+      else if (currentView === "ai") checkOllamaStatus();
+    }
+
+    // ==========================================
+    // VIEW 1 (HOME): 記事一覧（ニュース・発表）
+    // ==========================================
+    function renderArticlesView() {
+      const list = appData.articles || [];
+      const grid = document.getElementById("articles-grid");
+
+      if (list.length === 0) {
+        grid.innerHTML = `
+          <div class="col-span-2 bg-white p-10 border border-slate-300 text-center text-sm text-slate-500">
+            まだ記事がありません。ログインすると「記事を書く」ボタンから投稿できます。
+          </div>`;
+        return;
+      }
+
+      // 記事カード自体はクリック可能なので rounded-2xl + border
+      grid.innerHTML = list.map(a => `
+        <article onclick="openArticleReader('${a.id.replace(/'/g, "\\'")}')"
+          class="bg-white p-5 rounded-2xl border border-slate-300 hover:border-slate-900 cursor-pointer transition flex flex-col justify-between gap-3">
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between text-xs text-slate-400">
+              <span>${a.authors.length ? '著者: ' + escapeHtml(a.authors.join(", ")) : ''}</span>
+              <span class="mono">${escapeHtml(a.date)}</span>
+            </div>
+            <h3 class="font-bold text-base text-slate-900">${escapeHtml(a.title)}</h3>
+            <p class="text-xs text-slate-500 line-clamp-2">${escapeHtml(a.content.replace(/[#*`]/g, "").slice(0, 110))}...</p>
+          </div>
+          ${a.related_entities.length ? `
+            <div class="flex flex-wrap items-center gap-1 pt-2 border-t border-slate-100 text-xs text-slate-500">
+              ${a.related_entities.map(r => `<span class="px-2 py-0.5 bg-slate-100 border border-slate-200 text-[11px]">${escapeHtml(r)}</span>`).join("")}
+            </div>
+          ` : ""}
+        </article>
+      `).join("");
+    }
+
+    function openArticleReader(articleId) {
+      navigate("articles");
+      const a = appData.articles.find(x => x.id === articleId);
+      if (!a) return;
+      const box = document.getElementById("article-reader");
+      box.classList.remove("hidden");
+      document.getElementById("reader-date").textContent = a.date;
+      document.getElementById("reader-title").textContent = a.title;
+      document.getElementById("reader-authors").innerHTML = a.authors.length
+        ? `著者: ` + a.authors.map(au => `<button onclick="openEntityDetail('${au.replace(/'/g, "\\'")}')" class="px-2.5 py-0.5 bg-white border border-slate-300 hover:border-slate-900 rounded-full text-slate-800 font-medium">${escapeHtml(au)}</button>`).join(" ")
+        : "";
+
+      // 関連項目タグ（クリックできるので丸い）
+      document.getElementById("reader-related").innerHTML = a.related_entities.map(r =>
+        `<button onclick="openEntityDetail('${r.replace(/'/g, "\\'")}')" class="px-3 py-1 bg-white border border-slate-300 hover:border-slate-900 text-slate-800 rounded-full text-xs font-medium transition">${escapeHtml(r)}</button>`
+      ).join("");
+
+      document.getElementById("reader-body").innerHTML = linkifyEntitiesInHtml(marked.parse(a.content || ""));
+
+      const editBtn = document.getElementById("reader-edit-btn");
+      if (currentUser) {
+        editBtn.classList.remove("hidden");
+        editBtn.onclick = () => editExistingArticle(a);
+      } else {
+        editBtn.classList.add("hidden");
+      }
+      box.scrollIntoView({ behavior: "smooth" });
+    }
+
+    // ==========================================
+    // VIEW 2: 探す・調べる
+    // ==========================================
+    function renderExploreView() {
+      const mainCategories = [{id: "", label: "すべて"}, ...appData.classes
+        .filter(c => !["Status", "Article", "ExternalLink"].includes(c.id))
+        .map(c => ({id: c.id, label: c.short}))];
+
+      document.getElementById("category-pills").innerHTML = mainCategories.map(cat => {
+        const active = selectedCategoryFilter === cat.id;
+        return `<button onclick="selectedCategoryFilter='${cat.id}'; renderExploreView();"
+          class="px-3.5 py-1.5 rounded-full text-xs font-medium border transition ${
+            active ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-300 hover:border-slate-900'
+          }">
+          ${cat.label}
+        </button>`;
+      }).join("");
+
+      const q = (document.getElementById("explore-search").value || "").toLowerCase().trim();
+      const visibleEntities = appData.entities.filter(e => {
+        if (e.is_external || e.types.includes("Article") || e.types.includes("Status")) return false;
+        if (selectedCategoryFilter && !e.types.includes(selectedCategoryFilter)) return false;
+        if (!q) return true;
+        const text = `${e.id} ${e.wiki_content || ""} ${Object.values(e.literals).flat().join(" ")} ${e.outgoing.map(o => o.object_id).join(" ")}`.toLowerCase();
+        return text.includes(q);
+      });
+
+      const container = document.getElementById("explore-results");
+      if (visibleEntities.length === 0) {
+        container.innerHTML = `<div class="bg-white p-10 border border-slate-300 text-center text-sm text-slate-400">該当する項目が見つかりません。</div>`;
+        return;
+      }
+
+      const displayOrder = appData.classes.map(c => c.id);
+      let html = "";
+      displayOrder.forEach(cid => {
+        if (selectedCategoryFilter && selectedCategoryFilter !== cid) return;
+        const items = visibleEntities.filter(e => e.primary_type === cid);
+        if (items.length === 0) return;
+        const cinfo = items[0].type_info;
+
+        // カテゴリグループの外枠はデザイン枠なので四角い border、中のカードはクリックできるので丸い rounded-2xl
+        html += `
+          <div class="bg-white p-5 border border-slate-300 space-y-3.5">
+            <h2 class="font-bold text-sm text-slate-800 border-b border-slate-200 pb-2">${cinfo.label} <span class="text-xs font-normal text-slate-400">(${items.length})</span></h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              ${items.map(item => renderEntityCard(item)).join("")}
+            </div>
+          </div>
+        `;
+      });
+      container.innerHTML = html;
+    }
+
+    function renderEntityCard(item) {
+      const summary = (item.literals["概要"] && item.literals["概要"][0]) ||
+                      (item.wiki_content ? item.wiki_content.replace(/[#*`]/g, "").slice(0, 70) + "..." : "");
+      const relPreview = item.outgoing
+        .filter(o => !o.object_is_external && o.predicate !== "作成者")
+        .slice(0, 3)
+        .map(o => `<span class="px-2 py-0.5 bg-white text-slate-600 border border-slate-200 text-[11px]">${escapeHtml(o.object_id)}</span>`)
+        .join("");
+
+      return `
+        <div onclick="openEntityDetail('${item.id.replace(/'/g, "\\'")}')"
+          class="bg-slate-50 hover:bg-white p-4 rounded-2xl border border-slate-300 hover:border-slate-900 transition cursor-pointer flex flex-col justify-between gap-3">
+          <div>
+            <h3 class="font-bold text-base text-slate-900 leading-snug">${escapeHtml(item.id)}</h3>
+            ${summary ? `<p class="text-xs text-slate-500 mt-1.5 line-clamp-2">${escapeHtml(summary)}</p>` : ""}
+          </div>
+          ${relPreview ? `<div class="flex flex-wrap gap-1 pt-2 border-t border-slate-200/70">${relPreview}</div>` : ""}
+        </div>
+      `;
+    }
+
+    // ==========================================
+    // VIEW 3: 基本情報の詳細ページ
+    // ==========================================
+    function openEntityDetail(entityId) {
+      currentDetailEntityId = entityId;
+      navigate("entity-detail");
+    }
+
+    function renderEntityDetailView() {
+      const ent = appData.entities.find(e => e.id === currentDetailEntityId);
+      if (!ent) {
+        navigate("explore");
+        return;
+      }
+
+      document.getElementById("entity-detail-badge").textContent = ent.type_info.label;
+      document.getElementById("entity-detail-name").textContent = ent.id;
+      const summary = (ent.literals["概要"] && ent.literals["概要"][0]) || "";
+      document.getElementById("entity-detail-summary").textContent = summary;
+      document.getElementById("entity-detail-attributes").innerHTML = Object.entries(ent.literals)
+        .filter(([key]) => !["概要", "Wikiパス", "ファイルパス"].includes(key))
+        .map(([key, values]) => `<div><dt class="font-medium">${escapeHtml(key)}</dt><dd class="whitespace-pre-wrap break-words">${values.map(escapeHtml).join(" / ")}</dd></div>`).join("");
+
+      const wikiBox = document.getElementById("entity-detail-wiki");
+      if (ent.wiki_content && ent.wiki_content.trim()) {
+        wikiBox.innerHTML = linkifyEntitiesInHtml(marked.parse(ent.wiki_content));
+      } else {
+        wikiBox.innerHTML = `<div class="text-xs text-slate-400">詳しい解説（Wiki）はまだ書かれていません。</div>`;
+      }
+
+      const relGroups = {};
+      ent.outgoing.forEach(o => {
+        if (o.object_is_external) return;
+        const targetEnt = appData.entities.find(x => x.id === o.object_id);
+        if (targetEnt && targetEnt.types.includes("Article")) return;
+        const label = o.predicate_label || o.predicate;
+        (relGroups[label] = relGroups[label] || []).push({ id: o.object_id });
+      });
+      ent.incoming.forEach(inc => {
+        const sourceEnt = appData.entities.find(x => x.id === inc.subject_id);
+        if (sourceEnt && sourceEnt.types.includes("Article")) return;
+        const label = inc.predicate_label || inc.predicate;
+        (relGroups[label] = relGroups[label] || []).push({ id: inc.subject_id });
+      });
+
+      const relBox = document.getElementById("entity-detail-relations");
+      const groupEntries = Object.entries(relGroups);
+      if (groupEntries.length === 0) {
+        relBox.innerHTML = `<div class="text-xs text-slate-400">関連項目はまだありません。</div>`;
+      } else {
+        // 関連項目のボタンはクリック可能なので rounded-full
+        relBox.innerHTML = groupEntries.map(([label, items]) => `
+          <div>
+            <div class="text-xs font-medium text-slate-500 mb-1.5">${escapeHtml(label)}</div>
+            <div class="flex flex-wrap gap-1.5">
+              ${items.map(it => `
+                <button onclick="openEntityDetail('${it.id.replace(/'/g, "\\'")}')"
+                  class="px-3.5 py-1.5 bg-slate-50 hover:bg-slate-900 hover:text-white text-slate-800 border border-slate-300 hover:border-slate-900 rounded-full text-xs font-medium transition">
+                  ${escapeHtml(it.id)}
+                </button>
+              `).join("")}
+            </div>
+          </div>
+        `).join("");
+      }
+
+      const relatedArticles = appData.articles.filter(a =>
+        a.related_entities.includes(ent.id) || a.authors.includes(ent.id)
+      );
+      const artBox = document.getElementById("entity-detail-articles");
+      if (relatedArticles.length === 0) {
+        artBox.innerHTML = `<div class="text-xs text-slate-400 py-2">関連記事はまだありません。</div>`;
+      } else {
+        // クリックできる記事カードなので rounded-2xl
+        artBox.innerHTML = relatedArticles.map(a => `
+          <div onclick="openArticleReader('${a.id.replace(/'/g, "\\'")}')"
+            class="p-3.5 rounded-2xl border border-slate-300 hover:border-slate-900 cursor-pointer transition space-y-1">
+            <div class="flex items-center gap-2 text-[11px] text-slate-400">
+              <span class="px-2 py-0.5 bg-slate-100 text-slate-700 border border-slate-300 font-medium">${escapeHtml(a.article_type)}</span>
+              <span>${escapeHtml(a.date)}</span>
+            </div>
+            <div class="font-bold text-sm text-slate-900">${escapeHtml(a.title)}</div>
+          </div>
+        `).join("");
+      }
+
+      const extLinks = ent.outgoing.filter(o => o.object_is_external).map(o => o.object_uri);
+      const extBox = document.getElementById("entity-detail-extlinks");
+      if (extLinks.length === 0) {
+        extBox.innerHTML = `<div class="text-xs text-slate-400">なし</div>`;
+      } else {
+        // クリックできる外部リンクなので rounded-full
+        extBox.innerHTML = extLinks.map(url => `
+          <a href="${escapeHtml(url)}" target="_blank"
+            class="inline-block px-3.5 py-1.5 bg-slate-50 border border-slate-300 hover:border-slate-900 rounded-full text-xs text-blue-700 mono break-all">
+            ${escapeHtml(url)}
+          </a>
+        `).join("");
+      }
+    }
+
+    function toggleWikiEditModal() {
+      const ent = appData.entities.find(e => e.id === currentDetailEntityId);
+      if (!ent) return;
+      document.getElementById("modal-reg-title").textContent = `「${ent.id}」を編集`;
+      document.getElementById("reg-class").value = ent.primary_type !== "Other" ? ent.primary_type : "Target";
+      document.getElementById("reg-id").value = ent.id;
+      document.getElementById("reg-summary").value = (ent.literals["概要"] && ent.literals["概要"][0]) || "";
+      document.getElementById("reg-wiki").value = ent.wiki_content || "";
+      const exts = ent.outgoing.filter(o => o.object_is_external).map(o => o.object_uri);
+      document.getElementById("reg-extlinks").value = exts.join(", ");
+      updateRegFormHelper();
+      document.getElementById("modal-register").classList.remove("hidden");
+    }
+
+    function openWriteArticleForCurrentEntity() {
+      openWriteArticle([currentDetailEntityId]);
+    }
+
+    function askAiAboutEntity() {
+      navigate("ai");
+      document.getElementById("ai-question-input").value = `${currentDetailEntityId}に関連する課題や取り組みについて教えてください。`;
+    }
+
+    // ==========================================
+    // VIEW 5: マイページ
+    // ==========================================
+    function renderMyPageView() {
+      if (!currentUser) {
+        navigate("articles");
+        return;
+      }
+      document.getElementById("mypage-username").textContent = currentUser;
+      document.getElementById("mypage-avatar").textContent = currentUser.slice(0, 1);
+
+      const userEnt = appData.entities.find(e => e.id === currentUser);
+      const labs = userEnt ? userEnt.outgoing.filter(o => o.predicate === "所属する").map(o => o.object_id) : [];
+      const statuses = userEnt ? userEnt.outgoing.filter(o => o.predicate === "である").map(o => o.object_id) : [];
+      const exts = userEnt ? userEnt.outgoing.filter(o => o.object_is_external).map(o => o.object_uri) : [];
+
+      document.getElementById("mypage-affil-text").textContent =
+        [labs.join(", "), statuses.join(", ")].filter(Boolean).join(" / ") || "所属・身分未設定";
+
+      document.getElementById("mp-lab").value = labs.join(", ");
+      document.getElementById("mp-status").value = statuses.join(", ");
+      document.getElementById("mp-extlinks").value = exts.join(", ");
+      document.getElementById("mp-wiki").value = (userEnt && userEnt.wiki_content) || "";
+
+      const myResearchIds = userEnt
+        ? userEnt.outgoing.filter(o => ["扱う", "担当する"].includes(o.predicate)).map(o => o.object_id)
+        : [];
+      const resBox = document.getElementById("mypage-research-list");
+      if (myResearchIds.length === 0) {
+        resBox.innerHTML = `<div class="text-xs text-slate-400 py-4">まだ登録されていません。</div>`;
+      } else {
+        resBox.innerHTML = myResearchIds.map(rid => {
+          const rEnt = appData.entities.find(e => e.id === rid);
+          const targets = rEnt ? rEnt.outgoing.filter(o => o.predicate === "対象とする").map(o => o.object_id) : [];
+          const issues = rEnt ? rEnt.outgoing.filter(o => o.predicate === "解決を試みる").map(o => o.object_id) : [];
+          const techs = rEnt ? rEnt.outgoing.filter(o => ["扱う", "用いる"].includes(o.predicate)).map(o => o.object_id) : [];
+          return `
+            <div class="p-3.5 border border-slate-300 space-y-2">
+              <div class="flex items-start justify-between gap-2">
+                <button onclick="openEntityDetail('${rid.replace(/'/g, "\\'")}')" class="font-bold text-sm text-blue-700 hover:underline text-left">
+                  ${escapeHtml(rid)}
+                </button>
+                <button onclick="loadResearchIntoMyForm('${rid.replace(/'/g, "\\'")}')" class="px-2.5 py-0.5 text-xs border border-slate-300 hover:border-slate-900 rounded-full shrink-0">編集</button>
+              </div>
+              <div class="flex flex-wrap gap-1 text-[11px] text-slate-600">
+                ${targets.map(t => `<span class="px-2 py-0.5 bg-slate-100 border border-slate-200">${escapeHtml(t)}</span>`).join("")}
+                ${issues.map(i => `<span class="px-2 py-0.5 bg-slate-100 border border-slate-200">${escapeHtml(i)}</span>`).join("")}
+                ${techs.map(tc => `<span class="px-2 py-0.5 bg-slate-100 border border-slate-200">${escapeHtml(tc)}</span>`).join("")}
+              </div>
+            </div>
+          `;
+        }).join("");
+      }
+
+      const myArticles = appData.articles.filter(a => a.authors.includes(currentUser));
+      const artBox = document.getElementById("mypage-articles-list");
+      if (myArticles.length === 0) {
+        artBox.innerHTML = `<div class="text-xs text-slate-400 py-4">まだ執筆した記事はありません。</div>`;
+      } else {
+        artBox.innerHTML = myArticles.map(a => `
+          <div onclick="openArticleReader('${a.id.replace(/'/g, "\\'")}')" class="p-3 rounded-2xl border border-slate-300 hover:border-slate-900 cursor-pointer flex items-center justify-between transition">
+            <div>
+              <span class="text-[10px] bg-slate-100 text-slate-700 border border-slate-300 px-2 py-0.5">${escapeHtml(a.article_type)}</span>
+              <div class="font-bold text-sm text-slate-900 mt-1">${escapeHtml(a.title)}</div>
+            </div>
+            <span class="text-xs text-slate-400 mono">${escapeHtml(a.date)}</span>
+          </div>
+        `).join("");
+      }
+    }
+
+    async function handleSaveMyProfile(e) {
+      e.preventDefault();
+      if (!currentUser) return;
+      const labs = document.getElementById("mp-lab").value.split(",").map(s => s.trim()).filter(Boolean);
+      const statuses = document.getElementById("mp-status").value.split(",").map(s => s.trim()).filter(Boolean);
+      const exts = document.getElementById("mp-extlinks").value.split(",").map(s => s.trim()).filter(Boolean);
+      const wiki = document.getElementById("mp-wiki").value;
+
+      const userEnt = appData.entities.find(x => x.id === currentUser);
+      const existingResearch = userEnt
+        ? userEnt.outgoing.filter(o => ["扱う", "担当する"].includes(o.predicate)).map(o => ({ predicate: "担当する", object: o.object_id }))
+        : [];
+
+      const relations = [
+        ...labs.map(l => ({ predicate: "所属する", object: l })),
+        ...statuses.map(s => ({ predicate: "である", object: s })),
+        ...existingResearch,
+      ];
+
+      await fetch("/api/entity", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          entity_id: currentUser,
+          entity_class: "User",
+          wiki_content: wiki,
+          relations,
+          external_links: exts,
+          replace_predicates: ["所属する", "である", "扱う", "担当する"],
+        })
+      });
+      showToast("プロフィールを更新しました");
+      await loadAllData();
+    }
+
+    async function handleSaveMyResearch(e) {
+      e.preventDefault();
+      if (!currentUser) return;
+      const resName = document.getElementById("res-name").value.trim().replace(/^:/, "");
+      const targets = document.getElementById("res-targets").value.split(",").map(s => s.trim()).filter(Boolean);
+      const issues = document.getElementById("res-issues").value.split(",").map(s => s.trim()).filter(Boolean);
+      const techs = document.getElementById("res-techs").value.split(",").map(s => s.trim()).filter(Boolean);
+      const exts = document.getElementById("res-extlinks").value.split(",").map(s => s.trim()).filter(Boolean);
+      const wiki = document.getElementById("res-wiki").value;
+
+      const relations = [
+        ...targets.map(t => ({ predicate: "対象とする", object: t })),
+        ...issues.map(i => ({ predicate: "解決を試みる", object: i })),
+        ...techs.map(tc => ({ predicate: "用いる", object: tc })),
+      ];
+
+      const savedResearch = await fetch("/api/entity", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          entity_id: resName,
+          entity_class: "Research",
+          wiki_content: wiki,
+          relations,
+          external_links: exts,
+          replace_predicates: ["対象とする", "解決を試みる", "扱う", "用いる"],
+        })
+      });
+      if (!savedResearch.ok) {
+        const error = await savedResearch.json();
+        showToast(error.detail || "保存できませんでした");
+        return;
+      }
+
+      await fetch("/api/entity", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          entity_id: currentUser,
+          entity_class: "User",
+          wiki_content: (appData.entities.find(x => x.id === currentUser)?.wiki_content) || "",
+          relations: [{ predicate: "担当する", object: resName }],
+          external_links: null,
+          replace_relations: false,
+        })
+      });
+
+      document.getElementById("res-name").value = "";
+      document.getElementById("res-targets").value = "";
+      document.getElementById("res-issues").value = "";
+      document.getElementById("res-techs").value = "";
+      document.getElementById("res-extlinks").value = "";
+      document.getElementById("res-wiki").value = "";
+
+      showToast(`「${resName}」を保存しました`);
+      await loadAllData();
+    }
+
+    function loadResearchIntoMyForm(rid) {
+      const rEnt = appData.entities.find(e => e.id === rid);
+      if (!rEnt) return;
+      document.getElementById("res-name").value = rEnt.id;
+      document.getElementById("res-targets").value = rEnt.outgoing.filter(o => o.predicate === "対象とする").map(o => o.object_id).join(", ");
+      document.getElementById("res-issues").value = rEnt.outgoing.filter(o => o.predicate === "解決を試みる").map(o => o.object_id).join(", ");
+      document.getElementById("res-techs").value = rEnt.outgoing.filter(o => ["扱う", "用いる"].includes(o.predicate)).map(o => o.object_id).join(", ");
+      document.getElementById("res-extlinks").value = rEnt.outgoing.filter(o => o.object_is_external).map(o => o.object_uri).join(", ");
+      document.getElementById("res-wiki").value = rEnt.wiki_content || "";
+    }
+
+    // ==========================================
+    // VIEW 6: 記事執筆（ニュース・発表）
+    // ==========================================
+    function openWriteArticle(prefillRelated = []) {
+      document.getElementById("write-art-id").value = "";
+      document.getElementById("write-art-title").value = "";
+      document.getElementById("write-art-author").value = currentUser || "";
+      document.getElementById("write-art-related").value = prefillRelated.join(", ");
+      document.getElementById("write-art-content").value = "";
+      renderRelatedSuggestions();
+      navigate("write-article");
+    }
+
+    function editExistingArticle(a) {
+      document.getElementById("write-art-id").value = a.id;
+      document.getElementById("write-art-title").value = a.title;
+      document.getElementById("write-art-author").value = a.authors.join(", ") || currentUser || "";
+      document.getElementById("write-art-related").value = a.related_entities.join(", ");
+      document.getElementById("write-art-content").value = a.content;
+      renderRelatedSuggestions();
+      navigate("write-article");
+    }
+
+    function renderRelatedSuggestions() {
+      const box = document.getElementById("write-related-suggestions");
+      const items = appData.entities.filter(e => !e.is_external && !e.types.includes("Article") && !e.types.includes("Status")).slice(0, 12);
+      // クリックして追加するサジェストボタンなので rounded-full
+      box.innerHTML = items.map(e =>
+        `<button type="button" onclick="appendRelatedTag('${e.id.replace(/'/g, "\\'")}')"
+          class="px-2.5 py-0.5 text-[11px] bg-white border border-slate-300 hover:border-slate-900 text-slate-700 rounded-full">+ ${escapeHtml(e.id)}</button>`
+      ).join("");
+    }
+
+    function appendRelatedTag(tag) {
+      const input = document.getElementById("write-art-related");
+      const cur = input.value.split(",").map(s => s.trim()).filter(Boolean);
+      if (!cur.includes(tag)) cur.push(tag);
+      input.value = cur.join(", ");
+    }
+
+    async function handleSaveArticleForm(e) {
+      e.preventDefault();
+      const article_id = document.getElementById("write-art-id").value.trim();
+      const title = document.getElementById("write-art-title").value.trim();
+      const author = document.getElementById("write-art-author").value.trim();
+      const content = document.getElementById("write-art-content").value;
+      const related_entities = document.getElementById("write-art-related").value.split(",").map(s => s.trim()).filter(Boolean);
+
+      const res = await fetch("/api/article", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          article_id,
+          title,
+          article_type: "ニュース・発表",
+          content,
+          author,
+          related_entities,
+          external_links: [],
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        showToast("記事を公開しました");
+        await loadAllData();
+        openArticleReader(data.article_id);
+      }
+    }
+
+    // ==========================================
+    // 基本情報の追加モーダル
+    // ==========================================
+    function openRegisterModal() {
+      document.getElementById("modal-reg-title").textContent = "基本情報を追加する";
+      document.getElementById("reg-id").value = "";
+      document.getElementById("reg-summary").value = "";
+      document.getElementById("reg-wiki").value = "";
+      document.getElementById("reg-extlinks").value = "";
+      updateRegFormHelper();
+      document.getElementById("modal-register").classList.remove("hidden");
+    }
+
+    function closeRegisterModal() {
+      document.getElementById("modal-register").classList.add("hidden");
+    }
+
+    function updateRegFormHelper() {
+      const cls = document.getElementById("reg-class").value;
+      const id = document.getElementById("reg-id").value;
+      const ent = appData.entities.find(e => e.id === id);
+      const schema = appData.schema;
+      const required = schema.required[cls] || {};
+      const relationFields = Object.entries(schema.relations).filter(([p, spec]) =>
+        !spec.legacy && !spec.derived && p !== "外部リンク" &&
+        (spec.domains.includes("*") || spec.domains.includes(cls)));
+      let html = relationFields.map(([p, spec]) => {
+        const values = ent ? ent.outgoing.filter(o => o.predicate === p).map(o => o.object_id).join(", ") : "";
+        const mandatory = (required.relations || []).includes(p);
+        return `<label class="block text-xs text-slate-600">${escapeHtml(spec.label)}${mandatory ? " *" : ""}
+          <input data-schema-relation="${escapeHtml(p)}" value="${escapeHtml(values)}" ${mandatory ? "required" : ""}
+            list="datalist-All" placeholder="関連先の名称（複数はカンマ区切り）"
+            class="mt-1 w-full px-3 py-1.5 border border-slate-300 text-sm" /></label>`;
+      }).join("");
+      html += (schema.classes[cls].form_attributes || []).map(key => {
+        const spec = schema.attributes[key];
+        const value = ent ? (ent.literals[key] || [""])[0] : "";
+        const mandatory = (required.attributes || []).includes(key);
+        const choices = cls === "Result" && key === "種別" ? ["実施実績", "評価結果"] : spec.enum;
+        const attrs = `data-schema-attribute="${escapeHtml(key)}" ${mandatory ? "required" : ""} class="mt-1 w-full px-3 py-1.5 border border-slate-300 text-sm"`;
+        const field = choices ? `<select ${attrs}><option value="">未設定</option>${choices.map(v => `<option ${v === value ? "selected" : ""}>${escapeHtml(v)}</option>`).join("")}</select>`
+          : `<input ${attrs} value="${escapeHtml(value)}" />`;
+        return `<label class="block text-xs text-slate-600">${escapeHtml(key)}${mandatory ? " *" : ""}${field}</label>`;
+      }).join("");
+      if (cls === "Evidence") html += `<p class="text-xs text-slate-500">記述対象・対象述語と、値または関係先の一方を記録します。計画・目標を記録しても、その内容を達成済みの関係として自動追加しません。</p>`;
+      document.getElementById("reg-schema-fields").innerHTML = html;
+    }
+
+    async function handleQuickRegisterEntity(e) {
+      e.preventDefault();
+      const entity_class = document.getElementById("reg-class").value;
+      const entity_id = document.getElementById("reg-id").value.trim().replace(/^:/, "");
+      const summary = document.getElementById("reg-summary").value.trim();
+      const wiki_content = document.getElementById("reg-wiki").value;
+      const external_links = document.getElementById("reg-extlinks").value.split(",").map(s => s.trim()).filter(Boolean);
+
+      const relationInputs = [...document.querySelectorAll("[data-schema-relation]")];
+      const relations = relationInputs.flatMap(input => input.value.split(",").map(v => v.trim()).filter(Boolean)
+        .map(value => ({predicate: input.dataset.schemaRelation, object: value})));
+      const attributes = Object.fromEntries([...document.querySelectorAll("[data-schema-attribute]")]
+        .map(input => [input.dataset.schemaAttribute, input.value]));
+
+      const res = await fetch("/api/entity", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          entity_id,
+          entity_class,
+          summary,
+          wiki_content,
+          relations,
+          external_links,
+          attributes,
+          replace_predicates: relationInputs.map(input => input.dataset.schemaRelation),
+        })
+      });
+      if (res.ok) {
+        closeRegisterModal();
+        showToast(`「${entity_id}」を保存しました`);
+        await loadAllData();
+        openEntityDetail(entity_id);
+      } else {
+        const error = await res.json();
+        showToast(error.detail || "保存できませんでした");
+      }
+    }
+
+    // ==========================================
+    // VIEW 4: AI 探索（枠なし・モダンチャットUI）
+    // ==========================================
+    async function checkOllamaStatus() {
+      const model = document.getElementById("ai-model-input").value.trim();
+      const res = await fetch(`/api/ollama/status?model=${encodeURIComponent(model)}`);
+      const st = await res.json();
+      const el = document.getElementById("ollama-status-text");
+      if (st.running) {
+        el.innerHTML = `<span class="text-emerald-700 font-medium">接続OK</span>`;
+      } else {
+        el.innerHTML = `<span class="text-amber-700 font-medium">未接続</span>`;
+      }
+    }
+
+    function linkifyEntitiesInHtml(htmlStr) {
+      const names = appData.entities
+        .filter(e => !e.is_external && !e.types.includes("Article") && e.id.length >= 2)
+        .map(e => e.id)
+        .sort((a, b) => b.length - a.length);
+
+      let out = htmlStr;
+      names.forEach(name => {
+        const escapedName = escapeHtml(name);
+        const safeJsName = name.replace(/'/g, "\\'");
+        const reg = new RegExp(`\\[?${escapedName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\]?`, "g");
+        // 文章中のクリック可能な項目リンクも丸いピルボタン風にして視認性を高める
+        out = out.replace(
+          reg,
+          `<button type="button" onclick="openEntityDetail('${safeJsName}')" class="inline-block px-2 py-0.5 mx-0.5 bg-white border border-slate-300 hover:border-slate-900 rounded-full text-xs text-blue-700 font-medium transition">${escapedName}</button>`
+        );
+      });
+      return out;
+    }
+
+    async function handleAiSubmit(e) {
+      e.preventDefault();
+      const input = document.getElementById("ai-question-input");
+      const question = input.value.trim();
+      if (!question) return;
+
+      const model = document.getElementById("ai-model-input").value.trim();
+      const msgs = document.getElementById("ai-messages");
+      const btn = document.getElementById("ai-submit-btn");
+
+      msgs.innerHTML += `
+        <div class="flex justify-end">
+          <div class="bg-white border border-slate-300 text-slate-900 px-4 py-2.5 text-sm max-w-[80%]">
+            ${escapeHtml(question)}
+          </div>
+        </div>
+      `;
+      input.value = "";
+      btn.disabled = true;
+      btn.textContent = "...";
+      window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+
+      const res = await fetch("/api/explore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question, model })
+      });
+      const data = await res.json();
+      btn.disabled = false;
+      btn.textContent = "送信";
+
+      const parsedHtml = linkifyEntitiesInHtml(marked.parse(data.answer || ""));
+
+      msgs.innerHTML += `
+        <div class="text-sm text-slate-800 leading-relaxed">
+          <div class="markdown-body">${parsedHtml}</div>
+        </div>
+      `;
+      window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+    }
+
+    async function handleSaveRawTurtle() {
+      const content = document.getElementById("raw-turtle-textarea").value;
+      const errEl = document.getElementById("turtle-err-msg");
+      errEl.classList.add("hidden");
+      const res = await fetch("/api/turtle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content })
+      });
+      if (res.ok) {
+        showToast("knowledge.ttl を更新しました");
+        await loadAllData();
+      } else {
+        const err = await res.json();
+        errEl.textContent = err.detail || "エラー";
+        errEl.classList.remove("hidden");
+      }
+    }
+
+    loadAllData();
+  </script>
+</body>
+</html>

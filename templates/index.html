@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#173f43">
+  <title>離島工学DB — 研究と実践をつなぐ</title>
+  <link rel="stylesheet" href="/static/portfolio.css">
+  <link rel="stylesheet" href="/static/research-workspace.css">
+  <link rel="stylesheet" href="/static/island-ai.css">
+  <link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="/static/issues.css">
+  <script defer src="/static/vendor/markdown-it/markdown-it.min.js"></script>
+  <script defer src="/static/markdown.js"></script>
+  <script defer src="/static/vendor/leaflet/leaflet.js"></script>
+  <script defer src="/static/portfolio.js?v=issues-20261110-3"></script>
+  <script defer src="/static/issues.js?v=issues-20261110-3"></script>
+  <script defer src="/static/article-editor.js"></script>
+  <script defer src="/static/activity-records.js"></script>
+  <script defer src="/static/research-workspace.js"></script>
+  <script defer src="/static/island-ai.js"></script>
+</head>
+<body>
+  <aside class="sidebar" aria-label="メインメニュー">
+    <a class="brand" href="#articles"><span class="brand-mark" aria-hidden="true">◈</span><span>離島工学DB<small>RESEARCH & PRACTICE</small></span></a>
+    <div class="side-caption">読む・探す</div>
+    <nav>
+      <a href="#articles" data-nav="articles"><span data-icon="file"></span>ニュース・お知らせ</a>
+      <a href="#issues" data-nav="issues"><span data-icon="pin"></span>地域のお困りごと</a>
+      <a href="#activities" data-nav="activities"><span data-icon="layers"></span>研究・活動</a>
+      <a href="#people" data-nav="people"><span data-icon="users"></span>研究者・実践者</a>
+      <a href="#ai" data-nav="ai"><span data-icon="sparkles"></span>離島工学AI</a>
+      <a href="#explore" data-nav="explore"><span data-icon="search"></span>地域・課題から探す</a>
+    </nav>
+    <div class="side-divider"></div>
+    <div class="side-caption">自分の記録</div>
+    <nav><a href="#portfolio" data-nav="portfolio"><span data-icon="user"></span>ポートフォリオ</a><a href="/advanced" target="_blank" rel="noopener"><span data-icon="settings"></span>詳細編集<span class="external">↗</span></a></nav>
+    <div class="side-bottom"><label for="person-switch">表示する研究者</label><select id="person-switch" aria-label="表示する研究者"></select><p>ローカル版 · 入力画面の試作</p></div>
+  </aside>
+  <div class="workspace">
+    <header class="topbar"><button id="mobile-menu" class="icon-button" aria-label="メニューを開く" aria-expanded="false"><span data-icon="menu"></span></button><div class="breadcrumb" id="breadcrumb">離島工学DB <span>/</span> ニュース・お知らせ</div><div id="topbar-actions"><a class="button small" href="#portfolio"><span data-icon="user"></span>ポートフォリオへ</a></div></header>
+    <main id="main" tabindex="-1"><div class="loading">データを読み込んでいます…</div></main>
+  </div>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <dialog id="profile-dialog" aria-labelledby="profile-dialog-title"><div id="profile-dialog-content"></div></dialog>
+  <dialog id="record-dialog" aria-labelledby="record-dialog-title"><div id="record-dialog-content"></div></dialog>
+  <dialog id="organize-dialog" aria-labelledby="organize-dialog-title"><div id="organize-dialog-content"></div></dialog>
+  <dialog id="research-write-dialog" aria-labelledby="research-write-dialog-title"><div id="research-write-dialog-content"></div></dialog>
+  <noscript>この画面を使うにはJavaScriptを有効にしてください。</noscript>
+</body>
+</html>

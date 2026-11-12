@@ -1,0 +1,801 @@
+{
+  "version": 1,
+  "basis": "卒論第2章2.4・2.5節（具体的なクラス名・制約は実装上の設計判断）",
+  "classes": {
+    "Target": {
+      "label": "地域・現場（対象）",
+      "short": "地域・現場",
+      "icon": "",
+      "color": "emerald",
+      "description": "",
+      "form_attributes": []
+    },
+    "Issue": {
+      "label": "地域課題（イシュー）",
+      "short": "地域課題",
+      "icon": "",
+      "color": "amber",
+      "description": "",
+      "form_attributes": [
+        "背景条件"
+      ]
+    },
+    "Research": {
+      "label": "研究・活動",
+      "short": "研究・活動",
+      "icon": "",
+      "color": "blue",
+      "description": "",
+      "form_attributes": [
+        "実施時期",
+        "背景条件"
+      ]
+    },
+    "Resource": {
+      "label": "資源（設備・材料・知識）",
+      "short": "資源",
+      "icon": "",
+      "color": "lime",
+      "description": "活用対象となる設備・材料・知識・技能。方法を表すTechnologyと区別する。",
+      "form_attributes": []
+    },
+    "Goal": {
+      "label": "目標・計画",
+      "short": "目標・計画",
+      "icon": "",
+      "color": "orange",
+      "description": "",
+      "form_attributes": [
+        "説明",
+        "活動時期"
+      ]
+    },
+    "Result": {
+      "label": "実施実績・評価結果",
+      "short": "実績・評価",
+      "icon": "",
+      "color": "teal",
+      "description": "",
+      "form_attributes": [
+        "種別",
+        "説明",
+        "活動時期"
+      ]
+    },
+    "Participation": {
+      "label": "活動内の役割",
+      "short": "役割",
+      "icon": "",
+      "color": "violet",
+      "description": "活動と主体と役割の組合せ。個人の一般的な身分とは区別する。",
+      "form_attributes": [
+        "役割",
+        "活動時期"
+      ]
+    },
+    "Source": {
+      "label": "根拠資料",
+      "short": "資料",
+      "icon": "",
+      "color": "cyan",
+      "description": "",
+      "form_attributes": [
+        "タイトル",
+        "発行時点",
+        "資料パス"
+      ]
+    },
+    "Evidence": {
+      "label": "出典付き記述",
+      "short": "記述・根拠",
+      "icon": "",
+      "color": "stone",
+      "description": "一つの記述の対象・述語・値に、出典・該当箇所・時点・確認状況を対応付ける。",
+      "form_attributes": [
+        "対象述語",
+        "値",
+        "記述内容",
+        "記述区分",
+        "確認状況",
+        "該当箇所",
+        "活動時期",
+        "記録時点"
+      ]
+    },
+    "Technology": {
+      "label": "技術・手法",
+      "short": "技術",
+      "icon": "",
+      "color": "indigo",
+      "description": "",
+      "form_attributes": []
+    },
+    "Laboratory": {
+      "label": "組織・研究室",
+      "short": "研究室・組織",
+      "icon": "",
+      "color": "purple",
+      "description": "学校、自治体、研究室、運営組織など。既存IDを維持する。",
+      "form_attributes": []
+    },
+    "User": {
+      "label": "研究者・実践者（ユーザ）",
+      "short": "人物",
+      "icon": "",
+      "color": "slate",
+      "description": "個人を表す既存クラス。学生・教員という身分や集団は別項目とする。",
+      "form_attributes": [
+        "表示名",
+        "肩書",
+        "研究キーワード"
+      ]
+    },
+    "Status": {
+      "label": "身分・立場",
+      "short": "身分",
+      "icon": "",
+      "color": "gray",
+      "description": "",
+      "form_attributes": []
+    },
+    "Article": {
+      "label": "記事",
+      "short": "記事",
+      "icon": "",
+      "color": "teal",
+      "description": "",
+      "form_attributes": []
+    },
+    "ExternalLink": {
+      "label": "外部リンク",
+      "short": "外部リンク",
+      "icon": "",
+      "color": "cyan",
+      "description": "",
+      "form_attributes": []
+    },
+    "ActorGroup": {
+      "label": "主体の集団",
+      "short": "集団",
+      "icon": "",
+      "color": "purple",
+      "description": "学生の集団や地域住民など。個人・組織・身分と区別する。",
+      "form_attributes": []
+    }
+  },
+  "relations": {
+    "抱える": {
+      "domains": [
+        "Target"
+      ],
+      "ranges": [
+        "Issue"
+      ],
+      "label": "抱える"
+    },
+    "対象とする": {
+      "domains": [
+        "Research"
+      ],
+      "ranges": [
+        "Target"
+      ],
+      "label": "対象とする"
+    },
+    "解決を試みる": {
+      "domains": [
+        "Research"
+      ],
+      "ranges": [
+        "Issue"
+      ],
+      "label": "解決を試みる"
+    },
+    "用いる": {
+      "domains": [
+        "Research"
+      ],
+      "ranges": [
+        "Technology"
+      ],
+      "label": "用いる技術・手法"
+    },
+    "活用する": {
+      "domains": [
+        "Research"
+      ],
+      "ranges": [
+        "Resource"
+      ],
+      "label": "活用する資源"
+    },
+    "目指す": {
+      "domains": [
+        "Research"
+      ],
+      "ranges": [
+        "Goal"
+      ],
+      "label": "目指す"
+    },
+    "実績を持つ": {
+      "domains": [
+        "Research"
+      ],
+      "ranges": [
+        "Result"
+      ],
+      "label": "実績を持つ"
+    },
+    "参加関係": {
+      "domains": [
+        "Research"
+      ],
+      "ranges": [
+        "Participation"
+      ],
+      "label": "参加関係",
+      "derived": true
+    },
+    "主体": {
+      "domains": [
+        "Participation"
+      ],
+      "ranges": [
+        "User",
+        "Laboratory",
+        "ActorGroup"
+      ],
+      "label": "役割を担う主体"
+    },
+    "活動": {
+      "domains": [
+        "Participation"
+      ],
+      "ranges": [
+        "Research"
+      ],
+      "label": "活動"
+    },
+    "所属する": {
+      "domains": [
+        "User"
+      ],
+      "ranges": [
+        "Laboratory"
+      ],
+      "label": "所属する"
+    },
+    "である": {
+      "domains": [
+        "User"
+      ],
+      "ranges": [
+        "Status"
+      ],
+      "label": "である"
+    },
+    "担当する": {
+      "domains": [
+        "User",
+        "Laboratory",
+        "ActorGroup"
+      ],
+      "ranges": [
+        "Research"
+      ],
+      "label": "担当する"
+    },
+    "構成要素": {
+      "domains": [
+        "Resource"
+      ],
+      "ranges": [
+        "Resource"
+      ],
+      "label": "構成要素"
+    },
+    "加工先": {
+      "domains": [
+        "Resource"
+      ],
+      "ranges": [
+        "Resource"
+      ],
+      "label": "加工先"
+    },
+    "用途": {
+      "domains": [
+        "Resource"
+      ],
+      "ranges": [
+        "Resource"
+      ],
+      "label": "用途"
+    },
+    "根拠記述": {
+      "domains": [
+        "*"
+      ],
+      "ranges": [
+        "Evidence"
+      ],
+      "label": "根拠記述",
+      "derived": true
+    },
+    "記述対象": {
+      "domains": [
+        "Evidence"
+      ],
+      "ranges": [
+        "*"
+      ],
+      "label": "記述対象"
+    },
+    "関係先": {
+      "domains": [
+        "Evidence"
+      ],
+      "ranges": [
+        "*"
+      ],
+      "label": "関係先"
+    },
+    "出典": {
+      "domains": [
+        "Evidence"
+      ],
+      "ranges": [
+        "Source"
+      ],
+      "label": "出典"
+    },
+    "原資料": {
+      "domains": [
+        "Evidence"
+      ],
+      "ranges": [
+        "Source"
+      ],
+      "label": "間接参照した原資料"
+    },
+    "関連する": {
+      "domains": [
+        "*"
+      ],
+      "ranges": [
+        "*"
+      ],
+      "label": "関連する"
+    },
+    "作成者": {
+      "domains": [
+        "Article",
+        "Source"
+      ],
+      "ranges": [
+        "User",
+        "Laboratory",
+        "ActorGroup"
+      ],
+      "label": "作成者"
+    },
+    "外部リンク": {
+      "domains": [
+        "*"
+      ],
+      "ranges": [
+        "ExternalLink"
+      ],
+      "label": "外部リンク"
+    },
+    "扱う": {
+      "domains": [
+        "User",
+        "Research"
+      ],
+      "ranges": [
+        "Research",
+        "Technology"
+      ],
+      "label": "従来の関係（担当する／用いるへ移行）",
+      "legacy": true
+    },
+    "研究について": {
+      "domains": [
+        "Article"
+      ],
+      "ranges": [
+        "Research"
+      ],
+      "label": "取り上げている研究・活動"
+    },
+    "記録先": {
+      "domains": [
+        "Article"
+      ],
+      "ranges": [
+        "User",
+        "Laboratory",
+        "ActorGroup"
+      ],
+      "label": "活動記録を残すポートフォリオ"
+    },
+    "参照資料": {
+      "domains": [
+        "Research"
+      ],
+      "ranges": [
+        "Source"
+      ],
+      "label": "研究・活動の参考資料"
+    },
+    "記録者": {
+      "domains": [
+        "Evidence",
+        "Result",
+        "Source"
+      ],
+      "ranges": [
+        "User"
+      ],
+      "label": "記録した人"
+    },
+    "原記事": {
+      "domains": [
+        "Source"
+      ],
+      "ranges": [
+        "Article"
+      ],
+      "label": "記録の元になった記事"
+    }
+  },
+  "attributes": {
+    "実施状況": {
+      "domains": [
+        "*"
+      ],
+      "kind": "literal"
+    },
+    "該当箇所": {
+      "domains": [
+        "Evidence"
+      ],
+      "kind": "literal"
+    },
+    "発行時点": {
+      "domains": [
+        "Source"
+      ],
+      "kind": "literal"
+    },
+    "種別": {
+      "domains": [
+        "Result",
+        "Article"
+      ],
+      "kind": "literal"
+    },
+    "説明": {
+      "domains": [
+        "*"
+      ],
+      "kind": "literal"
+    },
+    "役割": {
+      "domains": [
+        "Participation"
+      ],
+      "kind": "literal"
+    },
+    "記述内容": {
+      "domains": [
+        "*"
+      ],
+      "kind": "literal"
+    },
+    "Wikiパス": {
+      "domains": [
+        "*"
+      ],
+      "kind": "literal"
+    },
+    "概要": {
+      "domains": [
+        "*"
+      ],
+      "kind": "literal"
+    },
+    "タイトル": {
+      "domains": [
+        "*"
+      ],
+      "kind": "literal"
+    },
+    "資料パス": {
+      "domains": [
+        "*"
+      ],
+      "kind": "literal"
+    },
+    "ファイルパス": {
+      "domains": [
+        "*"
+      ],
+      "kind": "literal"
+    },
+    "記録日": {
+      "domains": [
+        "*"
+      ],
+      "kind": "literal"
+    },
+    "日付": {
+      "domains": [
+        "*"
+      ],
+      "kind": "literal"
+    },
+    "原資料該当箇所": {
+      "domains": [
+        "*"
+      ],
+      "kind": "literal"
+    },
+    "確認状況": {
+      "domains": [
+        "Evidence"
+      ],
+      "kind": "literal",
+      "enum": [
+        "未確認",
+        "原資料確認済み",
+        "二次資料で確認",
+        "追加確認が必要"
+      ]
+    },
+    "記述区分": {
+      "domains": [
+        "Evidence"
+      ],
+      "kind": "literal",
+      "enum": [
+        "資料の説明",
+        "本研究の整理",
+        "目標",
+        "計画",
+        "実施状況",
+        "実施実績",
+        "評価結果"
+      ]
+    },
+    "実施時期": {
+      "domains": [
+        "*"
+      ],
+      "kind": "literal"
+    },
+    "作成日": {
+      "domains": [
+        "*"
+      ],
+      "kind": "literal"
+    },
+    "背景条件": {
+      "domains": [
+        "*"
+      ],
+      "kind": "literal"
+    },
+    "対象述語": {
+      "domains": [
+        "Evidence"
+      ],
+      "kind": "literal"
+    },
+    "値": {
+      "domains": [
+        "Evidence"
+      ],
+      "kind": "literal"
+    },
+    "活動時期": {
+      "domains": [
+        "Evidence",
+        "Goal",
+        "Result",
+        "Participation",
+        "Research"
+      ],
+      "kind": "literal"
+    },
+    "記録時点": {
+      "domains": [
+        "*"
+      ],
+      "kind": "literal"
+    },
+    "表示名": {
+      "domains": [
+        "User"
+      ],
+      "kind": "literal"
+    },
+    "肩書": {
+      "domains": [
+        "User"
+      ],
+      "kind": "literal"
+    },
+    "研究キーワード": {
+      "domains": [
+        "User"
+      ],
+      "kind": "literal"
+    },
+    "サムネイル": {
+      "domains": [
+        "Article"
+      ],
+      "kind": "literal"
+    },
+    "画像の説明": {
+      "domains": [
+        "Article"
+      ],
+      "kind": "literal"
+    },
+    "更新日時": {
+      "domains": [
+        "Article"
+      ],
+      "kind": "literal"
+    },
+    "資料区分": {
+      "domains": [
+        "Source"
+      ],
+      "kind": "literal",
+      "enum": [
+        "入力記録",
+        "参考資料",
+        "記事記録"
+      ]
+    },
+    "記事版": {
+      "domains": [
+        "Source"
+      ],
+      "kind": "literal"
+    },
+    "課題状況": {
+      "domains": [
+        "Issue"
+      ],
+      "kind": "literal",
+      "enum": [
+        "未整理",
+        "相談受付",
+        "調査・検討中",
+        "取組中",
+        "解決・一区切り"
+      ]
+    },
+    "投稿者の立場": {
+      "domains": [
+        "Issue"
+      ],
+      "kind": "literal",
+      "enum": [
+        "住民",
+        "行政",
+        "学生",
+        "教員",
+        "地域団体・事業者",
+        "その他"
+      ]
+    },
+    "課題分野": {
+      "domains": [
+        "Issue"
+      ],
+      "kind": "literal",
+      "enum": [
+        "暮らし・福祉",
+        "交通・物流",
+        "防災",
+        "環境・エネルギー",
+        "産業・観光",
+        "教育・文化",
+        "情報・通信",
+        "その他"
+      ]
+    },
+    "位置の精度": {
+      "domains": [
+        "Target"
+      ],
+      "kind": "literal",
+      "enum": [
+        "おおよその場所",
+        "施設・現場の位置"
+      ]
+    },
+    "投稿者名": {
+      "domains": [
+        "Issue"
+      ],
+      "kind": "literal"
+    },
+    "希望する支援": {
+      "domains": [
+        "Issue"
+      ],
+      "kind": "literal"
+    },
+    "場所の表示名": {
+      "domains": [
+        "Target"
+      ],
+      "kind": "literal"
+    },
+    "緯度": {
+      "domains": [
+        "Target"
+      ],
+      "kind": "literal"
+    },
+    "経度": {
+      "domains": [
+        "Target"
+      ],
+      "kind": "literal"
+    },
+    "課題更新日時": {
+      "domains": [
+        "Issue"
+      ],
+      "kind": "literal"
+    }
+  },
+  "required": {
+    "Participation": {
+      "relations": [
+        "主体",
+        "活動"
+      ],
+      "attributes": [
+        "役割"
+      ]
+    },
+    "Source": {
+      "relations": [],
+      "attributes": [
+        "タイトル"
+      ]
+    },
+    "Evidence": {
+      "relations": [
+        "記述対象",
+        "出典"
+      ],
+      "attributes": [
+        "対象述語",
+        "該当箇所",
+        "記述区分",
+        "確認状況"
+      ],
+      "one_of": [
+        "値",
+        "関係先"
+      ]
+    },
+    "Result": {
+      "relations": [],
+      "attributes": [
+        "種別"
+      ]
+    }
+  }
+}

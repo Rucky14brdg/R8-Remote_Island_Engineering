@@ -1,0 +1,31 @@
+# Python environments and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local settings and credentials
+.env
+.env.*
+!.env.example
+.aws/
+.codex/
+.agents/
+*.pem
+*.key
+
+# Local application data; keep only the shared schema
+/data/*
+!/data/schema.json
+/docs/evaluations/*.json
+/tmp/
+*.log
+
+# OS and editor files
+.DS_Store
+.idea/
+.vscode/
+node_modules/
