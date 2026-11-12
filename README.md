@@ -58,6 +58,7 @@ Gitではコードとスキーマを管理します。以下は `.gitignore` で
 python -m unittest discover -s tests -v
 node tests/markdown.cjs
 node tests/frontend_public_home.cjs
+node tests/organization_affiliations.cjs
 node tests/issue_map_selection.cjs
 node tests/island_ai.cjs
 ```

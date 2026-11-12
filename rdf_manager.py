@@ -47,7 +47,7 @@ PREDICATE_NATURAL_LABELS = {
     "対象とする": {"outgoing": "対象としている地域・現場", "incoming": "この地域・現場を対象とする研究・実践"},
     "解決を試みる": {"outgoing": "解決を試みている課題", "incoming": "この課題の解決を試みる研究・実践"},
     "扱う": {"outgoing": "利用技術 / 担当している研究", "incoming": "利用されている研究 / 担当メンバー"},
-    "所属する": {"outgoing": "所属している研究室・組織", "incoming": "所属メンバー"},
+    "所属する": {"outgoing": "所属している研究室・組織", "incoming": "所属する人物・組織"},
     "である": {"outgoing": "身分・立場", "incoming": "該当する人物"},
     "関連する": {"outgoing": "関連する項目", "incoming": "関連している記事・項目"},
     "作成者": {"outgoing": "執筆・作成者", "incoming": "執筆した記事"},
@@ -562,6 +562,17 @@ def validate_entity(g: Graph, node):
         for name in ['主体', '活動']:
             if len(list(g.objects(node, RITOU[name]))) != 1:
                 raise ValueError(f'参加記録の{name}は一つにしてください')
+    if 'Laboratory' in types:
+        # 所属先をたどって自分に戻る関係は、自己所属も含めて拒否する。
+        pending = list(g.objects(node, RITOU['所属する']))
+        visited = set()
+        while pending:
+            parent = pending.pop()
+            if parent == node:
+                raise ValueError('組織の所属が循環しています。自分自身や下位の組織には所属できません')
+            if parent not in visited:
+                visited.add(parent)
+                pending.extend(g.objects(parent, RITOU['所属する']))
 
 
 def delete_entity(entity_id: str):

@@ -46,6 +46,65 @@ class DatabaseDesignTests(unittest.TestCase):
         self.assertIn('Resource', {c['id'] for c in data['classes']})
         self.assertNotIn('Resource', {db.node_to_id(c) for c in db.load_graph().subjects(RDF.type, db.RDF_CLASS_URI)})
 
+    def test_organization_hierarchy_and_person_membership_round_trip(self):
+        self.put('大学', 'Laboratory')
+        self.put('学科', 'Laboratory', relations=[self.relation('所属する', '大学')])
+        self.put('研究室', 'Laboratory', relations=[self.relation('所属する', '学科')])
+        self.put('個人', 'User', relations=[self.relation('所属する', '研究室')])
+        data = db.get_all_data()
+        entities = {e['id']: e for e in data['entities']}
+        self.assertIn('Laboratory', data['schema']['relations']['所属する']['domains'])
+        self.assertEqual(['研究室'], [r['object_id'] for r in entities['個人']['outgoing'] if r['predicate'] == '所属する'])
+        self.assertTrue(any(r['subject_id'] == '研究室' and r['predicate'] == '所属する' for r in entities['学科']['incoming']))
+        self.assertNotIn('User', entities['研究室']['types'])
+
+    def test_organization_affiliations_api_replaces_only_membership(self):
+        self.put('研究室', 'Laboratory', summary='保持する概要', wiki_content='保持する紹介',
+                 relations=[self.relation('所属する', '旧組織'), self.relation('関連する', '旧組織')])
+
+        async def check():
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test') as client:
+                payload = dict(entity_id='研究室', entity_class='Laboratory',
+                               relations=[self.relation('所属する', '大学'), self.relation('所属する', '連携組織')],
+                               replace_predicates=['所属する'])
+                response = await client.post('/api/entity', json=payload)
+                self.assertEqual(200, response.status_code, response.text)
+                g = db.load_graph()
+                self.assertEqual({db.RITOU['大学'], db.RITOU['連携組織']}, set(g.objects(db.RITOU['研究室'], db.RITOU['所属する'])))
+                self.assertIn((db.RITOU['大学'], RDF.type, db.RITOU.Laboratory), g)
+                payload['relations'] = []
+                response = await client.post('/api/entity', json=payload)
+                self.assertEqual(200, response.status_code)
+                g = db.load_graph()
+                self.assertFalse(list(g.objects(db.RITOU['研究室'], db.RITOU['所属する'])))
+                self.assertIn((db.RITOU['研究室'], db.RITOU['関連する'], db.RITOU['旧組織']), g)
+                self.assertEqual('保持する概要', str(g.value(db.RITOU['研究室'], db.RITOU['概要'])))
+                self.assertEqual('保持する紹介', db.get_wiki_content('研究室'))
+        asyncio.run(check())
+
+    def test_organization_invalid_memberships_rejected_atomically(self):
+        self.put('大学', 'Laboratory')
+        self.put('学科', 'Laboratory', relations=[self.relation('所属する', '大学')])
+        self.put('研究室', 'Laboratory', relations=[self.relation('所属する', '学科')])
+        self.put('個人', 'User')
+        self.put('設備', 'Resource')
+        before = db.TTL_PATH.read_bytes()
+        for name, cls, target in [('大学', 'Laboratory', '大学'), ('大学', 'Laboratory', '研究室'),
+                                  ('研究室', 'Laboratory', '個人'), ('設備', 'Resource', '大学')]:
+            with self.subTest(name=name, target=target):
+                with self.assertRaises(ValueError):
+                    self.put(name, cls, relations=[self.relation('所属する', target)])
+                self.assertEqual(before, db.TTL_PATH.read_bytes())
+
+    def test_turtle_organization_hierarchy_accepts_valid_and_rejects_cycles(self):
+        raw = '@prefix : <https://example.org/ritou/> . :大学 a :Laboratory . :研究室 a :Laboratory ; :所属する :大学 .'
+        self.assertTrue(db.save_raw_turtle(raw)[0])
+        before = db.TTL_PATH.read_bytes()
+        valid, message = db.save_raw_turtle(raw + ' :大学 :所属する :研究室 .')
+        self.assertFalse(valid)
+        self.assertIn('循環', message)
+        self.assertEqual(before, db.TTL_PATH.read_bytes())
+
     def test_resource_and_method_are_distinct(self):
         self.put('活動A', 'Research')
         self.put('設備A', 'Resource')

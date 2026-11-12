@@ -53,6 +53,15 @@ class ProfileInput(BaseModel):
     external_links: List[str] = []
 
 
+class OrganizationInput(BaseModel):
+    entity_id: str = ""
+    name: str
+    summary: str = ""
+    description: str = ""
+    affiliations: List[str] = []
+    external_links: List[str] = []
+
+
 class ActivityRecordInput(BaseModel):
     activity_id: str
     record_kind: str = "progress"
@@ -191,6 +200,14 @@ async def save_portfolio_profile(body: ProfileInput):
         raise HTTPException(status_code=400, detail="名前を入力してください")
     try:
         return {"ok": True, "entity_id": portfolio.save_profile(body)}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/portfolio/organization")
+async def save_portfolio_organization(body: OrganizationInput):
+    try:
+        return {"ok": True, "entity_id": portfolio.save_organization(body)}
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

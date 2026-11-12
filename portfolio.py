@@ -84,6 +84,24 @@ def save_profile(body):
     return saved_id
 
 
+def save_organization(body):
+    if not body.name.strip():
+        raise ValueError('組織名を入力してください')
+    g = db.load_graph()
+    existing = set(g.subjects(RDF.type, db.RITOU.Laboratory))
+    node = _reference(g, body.entity_id or body.name, 'Laboratory')
+    if not body.entity_id and node in existing:
+        raise ValueError('同名の組織が登録済みです。組織一覧から編集してください')
+    _literal(g, node, 'タイトル', body.name)
+    _literal(g, node, '概要', body.summary)
+    _relationships(g, node, '所属する', body.affiliations, 'Laboratory')
+    _external_links(g, node, body.external_links)
+    _validate_and_save(g, [node])
+    saved_id = db.node_to_id(node)
+    db.save_wiki_content(saved_id, body.description)
+    return saved_id
+
+
 def save_activity(body):
     if not body.title.strip():
         raise ValueError('研究・活動の名称を入力してください')

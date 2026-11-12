@@ -130,3 +130,29 @@
 .portfolio-columns > div .section-heading h2 .fine{font-size:12px;font-weight:400;white-space:nowrap;margin-left:5px}
 .portfolio-columns > div .lab-section{margin-top:34px}
 @media(max-width:650px){.portfolio-columns > div .section-heading h2{font-size:18px}}
+
+.profile-meta a{display:inline-flex;align-items:center;gap:5px;color:var(--accent)}
+.profile-meta a:hover{text-decoration:underline}
+a.tag:hover{background:var(--soft);border-color:#aac9c4;color:var(--accent)}
+
+.organization-affiliations>.section-heading{align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:20px}
+.organization-affiliations>.section-heading h2{margin:0}
+.affiliation-groups{display:grid;gap:20px}
+.affiliation-group+.affiliation-group{border-top:1px solid var(--line);padding-top:20px}
+.affiliation-group h3{font-size:12px;font-weight:600;line-height:1.6;margin:0 0 8px;color:var(--muted)}
+.affiliation-group .tags{margin-top:0}
+.affiliation-group .fine{margin:0}
+
+.organization-links{margin:20px 0}
+.organization-links h2{font-size:12px;color:var(--muted)}
+
+.detail-header>.organization-affiliations{margin-top:24px;padding-top:24px;border-top:1px solid var(--line)}
+
+.organization-summary{margin-top:16px;overflow-wrap:anywhere}
+.organization-summary-preview{margin-top:12px}
+.organization-summary-preview>summary{cursor:pointer;font-size:12px;color:var(--accent)}
+.organization-summary-preview>.markdown-edit-preview{margin-top:10px}
+
+.detail-heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px}
+.detail-actions{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-left:auto;max-width:100%}
+@media(max-width:650px){.detail-heading{align-items:flex-start}.detail-actions{justify-content:flex-start;margin-left:0}.detail-actions .button{white-space:normal;text-align:left}}

@@ -7,7 +7,7 @@ function element(id) {
   return elements.get(id);
 }
 const document={getElementById:element,querySelectorAll(){return [];},querySelector:element,addEventListener(){}};
-const context=vm.createContext({document,window:{addEventListener(){},scrollTo(){}},location:{hash:''},localStorage:{getItem(){return null;}},setTimeout,clearTimeout,console});
+const context=vm.createContext({document,window:{addEventListener(){},scrollTo(){}},location:{hash:''},localStorage:{getItem(){return null;}},setTimeout,clearTimeout,console,URLSearchParams});
 vm.runInContext(fs.readFileSync('static/vendor/markdown-it/markdown-it.min.js','utf8'),context);
 vm.runInContext(fs.readFileSync('static/markdown.js','utf8'),context);
 const source=fs.readFileSync('static/portfolio.js','utf8');
@@ -257,3 +257,25 @@ overviewInput.value='';overviewInput.selectionStart=0;overviewInput.selectionEnd
 vm.runInContext("insertMarkdownFormat($('activity-description'),'image');",context);
 assert.match(overviewInput.value,/!\[画像の説明\]\(https:\/\/example.com\/image.png\)/);
 console.log('Freeform research overview: Markdown toolbar and preview, safe rendered headings/tables, RDF item links, optional existing goal preservation: OK');
+
+// プロフィールの所属は組織へ、文字列の研究キーワードは検索結果へ移動する。
+vm.runInContext(`
+  data.entities.push({id:'school',types:['Laboratory'],literals:{タイトル:['弓削商船高等専門学校']},outgoing:[]});
+  entity('author').outgoing.push({predicate:'所属する',object_id:'school'});
+  entity('author').literals.研究キーワード=['海洋 & 通信'];
+  entity('project').literals={タイトル:['海洋 & 通信の研究']};
+  renderPortfolio('author');
+`,context);
+assert.match(element('main').innerHTML,/<a href="#entity\/school">/);
+assert.match(element('main').innerHTML,/弓削商船高等専門学校<\/a>/);
+const keywordHref='#activities?q='+encodeURIComponent('海洋 & 通信');
+assert.ok(element('main').innerHTML.includes('href="'+keywordHref+'"'));
+context.location.hash=keywordHref;
+vm.runInContext('route();',context);
+assert.equal(vm.runInContext('search',context),'海洋 & 通信');
+assert.match(element('main').innerHTML,/value="海洋 &amp; 通信"/);
+assert.match(element('list-results').innerHTML,/海洋 &amp; 通信の研究/);
+context.location.hash='#activities';
+vm.runInContext('route();',context);
+assert.equal(vm.runInContext('search',context),'');
+console.log('Profile affiliation links and encoded keyword search navigation: OK');

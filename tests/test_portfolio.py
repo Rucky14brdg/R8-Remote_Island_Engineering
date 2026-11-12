@@ -7,7 +7,7 @@ from unittest.mock import patch
 from rdflib import RDF, Literal
 import rdf_manager as db
 import portfolio
-from app import app, ActivityInput, ProfileInput
+from app import app, ActivityInput, ProfileInput, OrganizationInput
 
 
 class PortfolioInputTests(unittest.TestCase):
@@ -25,6 +25,49 @@ class PortfolioInputTests(unittest.TestCase):
 
     def save(self, **kwargs):
         return portfolio.save_activity(ActivityInput(**{'title': '試験活動', **kwargs}))
+
+    def test_organization_creation_editing_and_membership_preservation(self):
+        oid = portfolio.save_organization(OrganizationInput(name='組織 A & B', summary='概要',
+            description='紹介文', affiliations=['大学'], external_links=['https://example.org/']))
+        db.upsert_entity_with_relations('個人', 'User', relations=[{'predicate': '所属する', 'object': oid}])
+        db.upsert_entity_with_relations(oid, 'Laboratory', relations=[{'predicate': '関連する', 'object': '大学'}])
+        saved = portfolio.save_organization(OrganizationInput(entity_id=oid, name='変更後の組織',
+            summary='更新した概要', description='更新した紹介', affiliations=['連携団体']))
+        self.assertEqual(oid, saved)
+        g = db.load_graph()
+        self.assertEqual('変更後の組織', str(g.value(db.RITOU[oid], db.RITOU['タイトル'])))
+        self.assertEqual('更新した紹介', db.get_wiki_content(oid))
+        self.assertEqual({db.RITOU['連携団体']}, set(g.objects(db.RITOU[oid], db.RITOU['所属する'])))
+        self.assertIn((db.RITOU['個人'], db.RITOU['所属する'], db.RITOU[oid]), g)
+        self.assertIn((db.RITOU[oid], db.RITOU['関連する'], db.RITOU['大学']), g)
+        self.assertFalse(list(g.objects(db.RITOU[oid], db.RITOU['外部リンク'])))
+
+    def test_organization_invalid_edits_are_atomic(self):
+        oid = portfolio.save_organization(OrganizationInput(name='組織', description='保持する紹介'))
+        before = db.TTL_PATH.read_bytes()
+        for body in [OrganizationInput(name='  '), OrganizationInput(name='組織'),
+                     OrganizationInput(entity_id=oid, name='変更', affiliations=[oid]),
+                     OrganizationInput(entity_id=oid, name='変更', external_links=['javascript:alert(1)'])]:
+            with self.subTest(body=body):
+                with self.assertRaises(ValueError):
+                    portfolio.save_organization(body)
+                self.assertEqual(before, db.TTL_PATH.read_bytes())
+                self.assertEqual('保持する紹介', db.get_wiki_content(oid))
+
+    def test_organization_api(self):
+        async def check():
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test') as client:
+                response = await client.post('/api/portfolio/organization', json={'name': '新規組織', 'affiliations': ['大学']})
+                self.assertEqual(200, response.status_code, response.text)
+                oid = response.json()['entity_id']
+                response = await client.post('/api/portfolio/organization', json={'entity_id': oid, 'name': '名称変更', 'summary': '紹介'})
+                self.assertEqual(200, response.status_code)
+                data = (await client.get('/api/data')).json()
+                org = next(e for e in data['entities'] if e['id'] == oid)
+                self.assertEqual(['名称変更'], org['literals']['タイトル'])
+                response = await client.post('/api/portfolio/organization', json={'name': ''})
+                self.assertEqual(400, response.status_code)
+        asyncio.run(check())
 
     def test_title_only_is_enough_and_id_is_stable_when_renamed(self):
         aid = self.save()

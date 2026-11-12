@@ -259,7 +259,8 @@
     },
     "所属する": {
       "domains": [
-        "User"
+        "User",
+        "Laboratory"
       ],
       "ranges": [
         "Laboratory"
