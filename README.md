@@ -4,6 +4,51 @@
 
 ## 起動
 
+### Dockerで起動（Mac間で同じ手順を使う場合）
+
+[Docker Desktop for Mac](https://docs.docker.com/desktop/setup/install/mac-install/)をインストールして起動します。Mac側にPythonやPythonライブラリをインストールする必要はありません。Apple Silicon / Intelの各Macで、そのMac向けのイメージをビルドします。
+
+```sh
+git clone https://github.com/Rucky14brdg/R8-Remote_Island_Engineering.git
+cd R8-Remote_Island_Engineering
+docker compose up -d --build
+```
+
+ブラウザで <http://127.0.0.1:8000> を開きます。APIドキュメントは <http://127.0.0.1:8000/docs> です。初回ビルドにはインターネット接続が必要です。以降の起動は `docker compose up -d`、コードや依存ライブラリの更新後は `docker compose up -d --build` を実行します。
+
+```sh
+docker compose logs -f app  # ログを確認（Ctrl+Cでログ表示を終了）
+docker compose ps           # 起動・ヘルスチェックの状態を確認
+docker compose down         # 停止（data/の内容は残ります）
+```
+
+8000番ポートが使用中なら `APP_PORT=8001 docker compose up -d --build` で変更できます。変更したポートは以降の起動でも同じ値を指定してください。
+
+`data/` はMac側のフォルダをコンテナに接続するため、記事・画像などはコンテナを作り直しても残ります。既存の `data/` があればそのまま使います。実データや `.env`、認証情報はビルド対象から除外しています。別のMacへの移行は、両方のアプリを停止して `data/` をコピーし、移行先で起動してください。`data/schema.json` も必要なので、コピー先で削除しないでください。
+
+#### AIもDockerで起動する場合
+
+Ollamaのインストールも省く場合は、追加のComposeファイルを使います。
+
+```sh
+docker compose -f compose.yaml -f compose.ollama.yaml up -d --build
+docker compose -f compose.yaml -f compose.ollama.yaml exec ollama ollama pull qwen3.5:4b
+```
+
+モデルの取得が完了するとAI機能を利用できます。Ollamaが起動途中で接続できない場合は、少し待ってモデル取得を再実行してください。モデルはDockerの名前付きボリューム `ollama-models` に保存され、再起動時の取得は不要です。別のMacではモデルを再取得してください。
+
+この構成の起動・停止・ログ確認では、毎回 `docker compose -f compose.yaml -f compose.ollama.yaml` に続けて `up -d` / `down` / `logs -f` を指定します。`down -v` はモデルの保存ボリュームも削除するため、モデルを消したい場合だけ使います。
+
+MacでのOllamaコンテナはCPUで推論します（[Ollama公式FAQ](https://github.com/ollama/ollama/blob/main/docs/faq.mdx)）。Apple SiliconのGPUを使いたい場合はMac版Ollamaを利用してください。
+
+#### Mac版Ollamaを利用する場合
+
+Mac版Ollamaを起動し、Macのターミナルで `ollama pull qwen3.5:4b` を実行してから、通常の `docker compose up -d --build` で起動します。AIのコンテナ構成から切り替える場合は、先に追加ファイル付きの `down` で停止してください。
+
+コンテナからMacへの接続にはDocker Desktopの [`host.docker.internal`](https://docs.docker.com/desktop/features/networking/networking-how-tos/) を使用します。別のOllamaサーバーに接続する場合は `OLLAMA_BASE_URL=http://接続先:11434 docker compose up -d` で変更できます。
+
+### Pythonで直接起動
+
 Python 3.10以上を用意し、リポジトリのルートで実行します。
 
 ```sh
@@ -23,7 +68,7 @@ AI機能を使う場合は、別途Ollamaをインストールし、起動した
 ollama pull qwen3.5:4b
 ```
 
-接続先は `http://127.0.0.1:11434`、既定モデルは `qwen3.5:4b` です（`llm_agent.py`）。AI以外の閲覧・編集機能はOllamaなしで利用できます。
+Pythonで直接起動した場合の接続先は `http://127.0.0.1:11434`（環境変数 `OLLAMA_BASE_URL` で変更可能）、既定モデルは `qwen3.5:4b` です（`llm_agent.py`）。AI以外の閲覧・編集機能はOllamaなしで利用できます。
 
 ## 構成
 

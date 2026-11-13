@@ -1,0 +1,11 @@
+# Only application sources and the shared schema enter the build context.
+**
+!requirements.txt
+!*.py
+!search_aliases.json
+!templates/
+!templates/**
+!static/
+!static/**
+!data/
+!data/schema.json

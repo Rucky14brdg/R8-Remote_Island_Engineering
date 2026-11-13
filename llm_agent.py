@@ -1,6 +1,7 @@
 """Gemini版の探索を、参照元・対話履歴・ローカル生成に対応させた実装。"""
 import asyncio
 import json
+import os
 import re
 from typing import Any, Dict, List
 
@@ -10,7 +11,7 @@ from knowledge_search import search_events
 from knowledge_retrieval import (PRIMARY_TYPES, build_references, read_article_reference,
                                  search_subgraph_and_docs, format_retrieval_context)  # 既存呼び出しとの互換性
 
-OLLAMA_BASE_URL = 'http://127.0.0.1:11434'
+OLLAMA_BASE_URL = os.environ.get('OLLAMA_BASE_URL', 'http://127.0.0.1:11434').rstrip('/')
 DEFAULT_MODEL = 'qwen3.5:4b'
 
 
