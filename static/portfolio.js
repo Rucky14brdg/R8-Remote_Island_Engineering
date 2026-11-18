@@ -143,7 +143,50 @@ function persist(){if($('profile-dialog').open)return;if($('article-form')){pers
 function previewHtml(){const e=editor;return `<article class="panel preview-card"><div class="preview-strip"></div><div class="preview-content"><p class="category-label">研究・活動</p><h3 style="margin-top:12px">${esc(e.title||'研究・活動の名称が入ります')}</h3><p class="preview-summary">${esc(e.summary||'取り組みの概要がここに表示されます。')}</p><div class="tags">${e.issues.slice(0,2).map(v=>`<span class="tag issue">${esc(title(entity(v))||v)}</span>`).join('')}${e.technologies.slice(0,3).map(v=>`<span class="tag">${esc(title(entity(v))||v)}</span>`).join('')}</div><div class="preview-divider"></div>${e.period?`<div class="preview-item">${icon('calendar')}<span>${esc(e.period)}</span></div>`:''}<div class="preview-item">${icon('pin')}<span>${esc(e.targets.map(v=>title(entity(v))||v).join('・')||'地域・現場は未設定')}</span></div><div class="preview-item">${icon('users')}<span>${esc(e.participants.filter(p=>p.name.trim()).map(p=>title(entity(p.name))||p.name).join('・')||'メンバーは未設定')}</span></div></div></article>`;}
 function updatePreview(){if(!editor||!$('live-preview'))return;updateActivityOverviewPreview();$('live-preview').innerHTML=previewHtml();if($('summary-count'))$('summary-count').textContent=editor.summary.length+'文字';}
 function flushPending(){capture();for(const [key,value] of Object.entries(editor._pending)){if(chipSpecs[key]&&value.trim()){editor[key]=uniq([...editor[key],...split(value)]);editor._pending[key]='';}}}
-async function saveActivity(event){event.preventDefault();if(saving)return;flushPending();if(!editor.entity_id&&!editor._new_id)editor._new_id='research_'+crypto.randomUUID().replaceAll('-','').slice(0,16);const draftKey=editor.entity_id||'new';const payload={...editor,entity_id:editor.entity_id||editor._new_id,participants:editor.participants.filter(p=>p.name.trim())};for(const key of Object.keys(payload))if(key.startsWith('_'))delete payload[key];persist();saving=true;$('save-activity').disabled=true;$('save-activity').textContent='保存しています…';$('activity-error').hidden=true;try{const result=await request('/api/portfolio/activity',payload);deleteDraft(draftKey);editor=null;location.hash=activityHref(result.entity_id);await load();renderActivity(result.entity_id);window.scrollTo({top:0});notify('研究・活動を保存しました');}catch(error){if(!$('activity-error')){notify('保存処理の後に画面を更新できませんでした。再読み込みで確認してください。');return;}$('activity-error').textContent=error.message;$('activity-error').hidden=false;$('activity-error').scrollIntoView({behavior:'smooth',block:'center'});$('save-activity').disabled=false;$('save-activity').innerHTML='保存して反映する '+icon('check');persist();}finally{saving=false;}}
+async function saveActivity(event){
+  event.preventDefault();
+  if(saving)return;
+
+  const button=$('save-activity');
+  const errorBox=$('activity-error');
+  saving=true;
+  button.disabled=true;
+  button.textContent='保存しています…';
+  errorBox.hidden=true;
+  try{
+    flushPending();
+    if(!editor.entity_id&&!editor._new_id){
+      const bytes=crypto.getRandomValues(new Uint8Array(8));
+      editor._new_id='research_'+Array.from(bytes,byte=>byte.toString(16).padStart(2,'0')).join('');
+    }
+    const draftKey=editor.entity_id||'new';
+    const payload={...editor,entity_id:editor.entity_id||editor._new_id,participants:editor.participants.filter(p=>p.name.trim())};
+    for(const key of Object.keys(payload))if(key.startsWith('_'))delete payload[key];
+    persist();
+    const result=await request('/api/portfolio/activity',payload);
+    deleteDraft(draftKey);
+    editor=null;
+    location.hash=activityHref(result.entity_id);
+    await load();
+    renderActivity(result.entity_id);
+    window.scrollTo({top:0});
+    notify('研究・活動を保存しました');
+  }catch(error){
+    if(!errorBox.isConnected){
+      notify('保存処理の後に画面を更新できませんでした。再読み込みで確認してください。');
+      return;
+    }
+    errorBox.textContent=error.message;
+    errorBox.hidden=false;
+    errorBox.scrollIntoView({behavior:'smooth',block:'center'});
+  }finally{
+    saving=false;
+    if(button.isConnected){
+      button.disabled=false;
+      button.innerHTML='保存して反映する '+icon('check');
+    }
+  }
+}
 function openProfile(id){const e=entity(id);profileDraft={entity_id:id,display_name:literal(e,'表示名')||id,headline:literal(e,'肩書'),summary:literal(e,'概要'),description:e.wiki_content||'',affiliations:out(e,'所属する'),statuses:out(e,'である'),keywords:split(literal(e,'研究キーワード')),external_links:out(e,'外部リンク'),_pending:{}};const p=profileDraft;$('profile-dialog-content').innerHTML=`<form id="profile-form"><div class="dialog-header"><h2 id="profile-dialog-title">プロフィールを編集</h2><button type="button" class="icon-button" data-action="close-profile" aria-label="閉じる">×</button></div><div class="dialog-body"><div id="profile-error" class="form-error" hidden role="alert"></div><div class="two-fields"><div class="field"><label for="profile-name">表示名</label><input id="profile-name" data-profile-key="display_name" value="${esc(p.display_name)}" required></div><div class="field"><label for="profile-headline">肩書・専門</label><input id="profile-headline" data-profile-key="headline" value="${esc(p.headline)}" placeholder="例：情報工学科・地域連携担当"></div></div>${chipField('affiliations',p)}${chipField('statuses',p)}${chipField('keywords',p)}<div class="field"><label for="profile-summary">短い自己紹介</label><textarea id="profile-summary" data-profile-key="summary" rows="3">${esc(p.summary)}</textarea></div><div class="field"><label for="profile-description">詳しいプロフィール</label><textarea id="profile-description" data-profile-key="description" rows="5">${esc(p.description)}</textarea></div><div class="field"><label for="profile-links">関連リンク（1行に1件）</label><textarea id="profile-links" data-profile-key="external_links" rows="2" placeholder="https://...">${esc(p.external_links.join('\n'))}</textarea></div></div><div class="dialog-actions"><button class="button" type="button" data-action="close-profile">キャンセル</button><button class="button primary" type="submit" id="save-profile">保存する</button></div></form>`;$('profile-dialog').showModal();}
 async function saveProfile(event){event.preventDefault();const p={...profileDraft};document.querySelectorAll('[data-profile-key]').forEach(input=>p[input.dataset.profileKey]=input.dataset.profileKey==='external_links'?input.value.split('\n').map(v=>v.trim()).filter(Boolean):input.value);for(const key of ['affiliations','statuses','keywords']){const pending=$('chip-'+key)?.value||'';p[key]=uniq([...p[key],...split(pending)]);}delete p._pending;$('save-profile').disabled=true;try{await request('/api/portfolio/profile',p);$('profile-dialog').close();await load();route();notify('プロフィールを保存しました');}catch(error){$('profile-error').textContent=error.message;$('profile-error').hidden=false;$('profile-error').scrollIntoView();$('save-profile').disabled=false;}}
 function route(){issuePageToken++;destroyIssueMap();const [hash,query='']=(location.hash.slice(1)||'articles').split('?');let [view,...ids]=hash.split('/');let id;try{id=decodeURIComponent(ids.join('/'));}catch{return notFound();}if(view!=='editor')editor=null;if(view==='organizations'){search=new URLSearchParams(query).get('q')||'';renderOrganizations();}else if(view==='portfolio')renderPortfolio();else if(view==='person')renderPortfolio(id);else if(['activities','people','articles','explore'].includes(view)){search=new URLSearchParams(query).get('q')||'';filter='all';renderList(view);}else if(view==='issues')renderIssues(id);else if(view==='issue')renderIssue(id);else if(view==='place-new')renderPlaceEditor();else if(view==='place-edit')renderPlaceEditor(id);else if(view==='issue-new')renderIssueEditor();else if(view==='issue-edit')renderIssueEditor(id);else if(view==='ai')renderIslandAI(id);else if(view==='activity')renderActivity(id);else if(view==='editor')renderEditor();else if(view==='entity')renderEntity(id);else if(view==='article')renderArticle(id);else if(view==='article-edit')renderArticleEditor(id);else if(view==='article-new')renderArticleEditor('','news');else if(view==='activity-record')renderArticleEditor('','portfolio',id);else if(view==='research-news')renderArticleEditor('','news',id);else if(view==='research-note')renderArticleEditor('','research',id);else notFound();window.scrollTo({top:0});}
