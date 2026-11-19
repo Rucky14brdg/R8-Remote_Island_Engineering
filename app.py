@@ -101,6 +101,7 @@ class ProfileInput(BaseModel):
     description: str = ""
     keywords: List[str] = []
     affiliations: Optional[List[str]] = None
+    organization_project_ids: Optional[List[str]] = None
     statuses: List[str] = []
     external_links: List[str] = []
 
@@ -277,6 +278,7 @@ async def api_save_activity_record(body: ActivityRecordInput):
 @app.get("/api/data")
 async def api_get_data():
     data = rdf_manager.get_all_data()
+    data["admin_entity_id"] = rdf_manager.ADMIN_ENTITY_ID
     data["raw_turtle"] = rdf_manager.get_raw_turtle()
     return data
 

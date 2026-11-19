@@ -133,6 +133,58 @@ class PortfolioInputTests(unittest.TestCase):
                 self.assertIn((db.RITOU['個人'], db.RITOU['所属する'], db.RITOU['既存_組織']), db.load_graph())
         asyncio.run(check())
 
+    def test_profile_organization_project_selection_is_optional_and_scoped(self):
+        db.upsert_entity_with_relations('学校', 'Laboratory')
+        db.upsert_entity_with_relations('別組織', 'Laboratory')
+        db.upsert_entity_with_relations('個人', 'User',
+            relations=[{'predicate': '所属する', 'object': '学校'}])
+
+        async def check():
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test') as client:
+                payload = {'entity_id': '個人', 'organization_project_ids': ['学校']}
+                response = await client.post('/api/portfolio/profile', json=payload)
+                self.assertEqual(200, response.status_code, response.text)
+                response = await client.post('/api/portfolio/profile', json={'entity_id': '個人'})
+                self.assertEqual(200, response.status_code, response.text)
+                preference = db.RITOU['活動を表示する所属組織']
+                person = db.RITOU['個人']
+                self.assertIn((person, preference, db.RITOU['学校']), db.load_graph())
+                payload['organization_project_ids'] = ['別組織']
+                response = await client.post('/api/portfolio/profile', json=payload)
+                self.assertEqual(400, response.status_code, response.text)
+                self.assertIn((person, preference, db.RITOU['学校']), db.load_graph())
+                payload['organization_project_ids'] = []
+                response = await client.post('/api/portfolio/profile', json=payload)
+                self.assertEqual(200, response.status_code, response.text)
+                graph = db.load_graph()
+                self.assertFalse(list(graph.objects(person, preference)))
+                self.assertIn((person, db.RITOU['所属する'], db.RITOU['学校']), graph)
+        asyncio.run(check())
+
+    def test_admin_public_profile_can_be_saved_without_changing_identity_or_membership(self):
+        admin_id = db.ADMIN_ENTITY_ID
+        db.upsert_entity_with_relations(admin_id, 'User', attributes={'表示名': admin_id},
+            relations=[{'predicate': '所属する', 'object': '学校'}])
+
+        async def check():
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test') as client:
+                payload = {'entity_id': admin_id, 'display_name': admin_id, 'summary': '公開プロフィール',
+                           'description': '自己紹介', 'organization_project_ids': ['学校']}
+                response = await client.post('/api/portfolio/profile', json=payload)
+                self.assertEqual(200, response.status_code, response.text)
+                response = await client.post('/api/portfolio/profile', json={**payload, 'display_name': '別の名前'})
+                self.assertEqual(403, response.status_code)
+                response = await client.post('/api/portfolio/profile', json={**payload, 'affiliations': ['学校', '別の組織']})
+                self.assertEqual(403, response.status_code)
+                response = await client.delete('/api/entity/' + admin_id)
+                self.assertEqual(403, response.status_code)
+                graph = db.load_graph()
+                node = db.RITOU[admin_id]
+                self.assertEqual('自己紹介', db.get_wiki_content(admin_id))
+                self.assertEqual({db.RITOU['学校']}, set(graph.objects(node, db.RITOU['所属する'])))
+                self.assertIn((node, db.RITOU['活動を表示する所属組織'], db.RITOU['学校']), graph)
+        asyncio.run(check())
+
     def test_title_only_is_enough_and_id_is_stable_when_renamed(self):
         aid = self.save()
         self.save(entity_id=aid, title='変更後の名称')

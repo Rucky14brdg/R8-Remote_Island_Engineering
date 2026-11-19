@@ -267,6 +267,11 @@
       ],
       "label": "所属する"
     },
+    "活動を表示する所属組織": {
+      "domains": ["User"],
+      "ranges": ["Laboratory"],
+      "label": "活動を表示する所属組織"
+    },
     "である": {
       "domains": [
         "User"

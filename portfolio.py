@@ -72,17 +72,37 @@ def _validate_and_save(g, nodes):
 def save_profile(body):
     g = db.load_graph()
     node = _reference(g, body.entity_id, 'User')
-    for key, value in [('表示名', body.display_name), ('肩書', body.headline),
-                       ('概要', body.summary), ('研究キーワード', '\n'.join(body.keywords))]:
+    fixed_identity = node == db.RITOU[db.ADMIN_ENTITY_ID] and not db.can_manage_organizations.get()
+    if fixed_identity:
+        display_name = str(g.value(node, db.RITOU['表示名']) or db.ADMIN_ENTITY_ID)
+        if body.display_name.strip() not in {'', display_name}:
+            db.require_organization_admin()
+    else:
+        _literal(g, node, '表示名', body.display_name)
+    for key, value in [('肩書', body.headline), ('概要', body.summary),
+                       ('研究キーワード', '\n'.join(body.keywords))]:
         _literal(g, node, key, value)
     if body.affiliations is not None:
         _relationships(g, node, '所属する', body.affiliations, 'Laboratory')
+    preference = db.RITOU['活動を表示する所属組織']
+    memberships = set(g.objects(node, db.RITOU['所属する']))
+    if body.organization_project_ids is not None:
+        selected = {db.RITOU[_name(value)] for value in body.organization_project_ids}
+        if not selected <= memberships or any((org, RDF.type, db.RITOU.Laboratory) not in g for org in selected):
+            raise ValueError('研究・活動の表示対象には現在の所属組織を選択してください')
+        g.remove((node, preference, None))
+        for org in selected:
+            g.add((node, preference, org))
+    elif body.affiliations is not None:
+        for org in set(g.objects(node, preference)) - memberships:
+            g.remove((node, preference, org))
     _relationships(g, node, 'である', body.statuses, 'Status')
     _external_links(g, node, body.external_links)
-    db.check_wiki_permissions(db.node_to_id(node))
-    _validate_and_save(g, [node])
     saved_id = db.node_to_id(node)
-    db.save_wiki_content(saved_id, body.description)
+    db.check_wiki_permissions(saved_id, profile_subject=node)
+    db.validate_entity(g, node)
+    db.save_graph(g, profile_subject=node)
+    db.save_wiki_content(saved_id, body.description, profile_subject=node)
     return saved_id
 
 

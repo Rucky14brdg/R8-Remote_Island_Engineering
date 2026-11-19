@@ -279,3 +279,50 @@ context.location.hash='#activities';
 vm.runInContext('route();',context);
 assert.equal(vm.runInContext('search',context),'');
 console.log('Profile affiliation links and encoded keyword search navigation: OK');
+
+vm.runInContext(`
+  const affiliation=id=>({predicate:'所属する',object_id:id});
+  const assignment=id=>({predicate:'担当する',object_id:id});
+  const projectPreference=id=>({predicate:'活動を表示する所属組織',object_id:id});
+  data.entities.push(
+    {id:'department',types:['Laboratory'],literals:{},outgoing:[affiliation('school')]},
+    {id:'lab',types:['Laboratory'],literals:{タイトル:['沿岸研究室']},outgoing:[affiliation('department'),assignment('lab-project')]},
+    {id:'lab-team',types:['Laboratory'],literals:{},outgoing:[affiliation('lab'),assignment('team-project')]},
+    {id:'labmate',types:['User'],literals:{},outgoing:[affiliation('lab'),affiliation('school'),assignment('labmate-project'),assignment('project')]},
+    {id:'schoolmate',types:['User'],literals:{},outgoing:[affiliation('school'),assignment('school-project')]},
+    {id:'lab-project',types:['Research'],literals:{タイトル:['研究室の活動']},outgoing:[]},
+    {id:'team-project',types:['Research'],literals:{タイトル:['下位チームの活動']},outgoing:[]},
+    {id:'labmate-project',types:['Research'],literals:{タイトル:['研究室メンバーの活動']},outgoing:[]},
+    {id:'school-project',types:['Research'],literals:{タイトル:['学校所属のみの活動']},outgoing:[]}
+  );
+  entity('author').outgoing.push(affiliation('department'),affiliation('lab'),assignment('project'),projectPreference('lab'));
+  data.users=data.entities.filter(e=>e.types.includes('User'));
+  portfolioTab='activities';
+  renderPortfolio('author');
+`,context);
+const organizationSection=element('main').innerHTML.split('所属組織の研究・活動')[1];
+assert.match(organizationSection,/<h3>沿岸研究室<\/h3>/);
+assert.match(organizationSection,/研究室の活動/);
+assert.match(organizationSection,/下位チームの活動/);
+assert.match(organizationSection,/研究室メンバーの活動/);
+assert.doesNotMatch(organizationSection,/学校所属のみの活動|海洋 &amp; 通信の研究/);
+vm.runInContext("entity('author').outgoing.push(projectPreference('school')); renderPortfolio('author');",context);
+const schoolSection=element('main').innerHTML.split('所属組織の研究・活動')[1];
+assert.match(schoolSection,/<h3>弓削商船高等専門学校<\/h3>/);
+assert.match(schoolSection,/<h3>沿岸研究室<\/h3>/);
+const labSection=schoolSection.split('<h3>沿岸研究室</h3>')[1];
+assert.doesNotMatch(labSection,/学校所属のみの活動/);
+assert.match(labSection,/下位チームの活動/);
+assert.equal((schoolSection.match(/下位チームの活動/g)||[]).length,2);
+element('profile-dialog').showModal=()=>{};
+vm.runInContext("openProfile('author');",context);
+const form=element('profile-dialog-content').innerHTML;
+assert.ok(form.indexOf('id="profile-links"') < form.indexOf('id="profile-organization-options"'));
+assert.match(form,/<\/fieldset><\/div><div class="dialog-actions">/);
+const options=vm.runInContext("profileOrganizationOptions(out(entity('author'),'所属する'),['lab'])",context);
+assert.match(options,/value="lab" checked/);
+assert.doesNotMatch(options,/value="lab-team"/);
+vm.runInContext("renderPortfolio('schoolmate');",context);
+assert.doesNotMatch(element('main').innerHTML,/所属組織の研究・活動/);
+assert.match(element('main').innerHTML,/弓削商船高等専門学校/);
+console.log('Portfolio activities render by organization and profile settings appear last: OK');

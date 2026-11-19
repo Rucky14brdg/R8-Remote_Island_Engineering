@@ -244,7 +244,7 @@ def protected_entities(graph):
     return set(graph.subjects(RDF.type, RITOU.Laboratory)) | {RITOU[ADMIN_ENTITY_ID]}
 
 
-def check_graph_permissions(graph):
+def check_graph_permissions(graph, *, profile_subject=None):
     if can_manage_organizations.get():
         return
     current = load_graph()
@@ -252,31 +252,46 @@ def check_graph_permissions(graph):
     affiliation = RITOU['所属する']
     # Evidence and participation indexes also change when ordinary records are added.
     indexes = {RITOU['根拠記述'], RITOU['参加関係']}
+    admin_node = RITOU[ADMIN_ENTITY_ID]
+    profile_fields = {RITOU[key] for key in (
+        '肩書', '概要', '研究キーワード', 'である', '外部リンク', '活動を表示する所属組織'
+    )}
     for candidate, other in ((current, graph), (graph, current)):
         if any(triple not in other for triple in candidate.triples((None, affiliation, None))):
             raise OrganizationPermissionError(ADMIN_REQUIRED)
         for entity in protected:
-            if any(p not in indexes and (entity, p, o) not in other
+            editable = indexes
+            if entity == admin_node == profile_subject and all(
+                (entity, RDF.type, RITOU.Laboratory) not in g for g in (current, graph)
+            ):
+                editable = indexes | profile_fields
+            if any(p not in editable and (entity, p, o) not in other
                    for p, o in candidate.predicate_objects(entity)):
                 raise OrganizationPermissionError(ADMIN_REQUIRED)
 
 
-def check_wiki_permissions(entity_id):
+def check_wiki_permissions(entity_id, *, profile_subject=None):
     if not can_manage_organizations.get():
         filename = safe_filename(entity_id)
-        if any(safe_filename(node_to_id(node)) == filename
-               for node in protected_entities(load_graph())):
+        graph = load_graph()
+        protected = protected_entities(graph)
+        admin_node = RITOU[ADMIN_ENTITY_ID]
+        if entity_id == ADMIN_ENTITY_ID and profile_subject == admin_node and (
+            admin_node, RDF.type, RITOU.Laboratory
+        ) not in graph:
+            protected.discard(admin_node)
+        if any(safe_filename(node_to_id(node)) == filename for node in protected):
             raise OrganizationPermissionError(ADMIN_REQUIRED)
 
 
-def save_graph(g: Graph):
-    check_graph_permissions(g)
+def save_graph(g: Graph, *, profile_subject=None):
+    check_graph_permissions(g, profile_subject=profile_subject)
     try:
         turtle_text = serialize_clean_turtle(g)
         serialized = Graph().parse(data=turtle_text, format="turtle")
     except Exception as exc:
         raise ValueError("項目の識別子または関係に使用できない文字が含まれています") from exc
-    check_graph_permissions(serialized)
+    check_graph_permissions(serialized, profile_subject=profile_subject)
     _write_turtle(turtle_text)
 
 
@@ -326,8 +341,8 @@ def get_wiki_content(entity_id: str) -> str:
     return ""
 
 
-def save_wiki_content(entity_id: str, content: str):
-    check_wiki_permissions(entity_id)
+def save_wiki_content(entity_id: str, content: str, *, profile_subject=None):
+    check_wiki_permissions(entity_id, profile_subject=profile_subject)
     ensure_dirs()
     clean_id = entity_id.strip().lstrip(":")
     fname = f"{safe_filename(clean_id)}.md"
