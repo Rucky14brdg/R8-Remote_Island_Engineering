@@ -1,3 +1,5 @@
+from contextvars import ContextVar
+from tempfile import NamedTemporaryFile
 import re
 import json
 from datetime import datetime
@@ -117,8 +119,10 @@ def format_turtle_term(node) -> str:
         s = str(node)
         if s.startswith(BASE_URI):
             local = s[len(BASE_URI):]
-            return f":{local}"
-        return f"<{s}>"
+            # Use a full IRI for identifiers outside the conservative prefixed-name syntax.
+            if re.fullmatch(r'\w[\w.-]*', local) and not local.endswith('.'):
+                return f":{local}"
+        return node.n3()
     elif isinstance(node, Literal):
         return node.n3()
     return str(node)
@@ -221,9 +225,71 @@ def serialize_clean_turtle(g: Graph) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
+ADMIN_ENTITY_ID = '石橋治樹'
+# Local maintenance calls are trusted. HTTP middleware sets the request's permission.
+can_manage_organizations = ContextVar('can_manage_organizations', default=True)
+ADMIN_REQUIRED = '組織・所属関係を変更するには管理者権限が必要です'
+
+
+class OrganizationPermissionError(Exception):
+    pass
+
+
+def require_organization_admin():
+    if not can_manage_organizations.get():
+        raise OrganizationPermissionError(ADMIN_REQUIRED)
+
+
+def protected_entities(graph):
+    return set(graph.subjects(RDF.type, RITOU.Laboratory)) | {RITOU[ADMIN_ENTITY_ID]}
+
+
+def check_graph_permissions(graph):
+    if can_manage_organizations.get():
+        return
+    current = load_graph()
+    protected = protected_entities(current) | protected_entities(graph)
+    affiliation = RITOU['所属する']
+    # Evidence and participation indexes also change when ordinary records are added.
+    indexes = {RITOU['根拠記述'], RITOU['参加関係']}
+    for candidate, other in ((current, graph), (graph, current)):
+        if any(triple not in other for triple in candidate.triples((None, affiliation, None))):
+            raise OrganizationPermissionError(ADMIN_REQUIRED)
+        for entity in protected:
+            if any(p not in indexes and (entity, p, o) not in other
+                   for p, o in candidate.predicate_objects(entity)):
+                raise OrganizationPermissionError(ADMIN_REQUIRED)
+
+
+def check_wiki_permissions(entity_id):
+    if not can_manage_organizations.get():
+        filename = safe_filename(entity_id)
+        if any(safe_filename(node_to_id(node)) == filename
+               for node in protected_entities(load_graph())):
+            raise OrganizationPermissionError(ADMIN_REQUIRED)
+
+
 def save_graph(g: Graph):
-    turtle_text = serialize_clean_turtle(g)
-    TTL_PATH.write_text(turtle_text, encoding="utf-8")
+    check_graph_permissions(g)
+    try:
+        turtle_text = serialize_clean_turtle(g)
+        serialized = Graph().parse(data=turtle_text, format="turtle")
+    except Exception as exc:
+        raise ValueError("項目の識別子または関係に使用できない文字が含まれています") from exc
+    check_graph_permissions(serialized)
+    _write_turtle(turtle_text)
+
+
+def _write_turtle(text):
+    with NamedTemporaryFile(mode="w", encoding="utf-8", dir=TTL_PATH.parent,
+                            prefix=".knowledge-", delete=False) as temporary:
+        temporary_path = Path(temporary.name)
+        try:
+            temporary.write(text)
+            temporary.close()
+            temporary_path.replace(TTL_PATH)
+        finally:
+            temporary_path.unlink(missing_ok=True)
 
 
 def get_raw_turtle() -> str:
@@ -232,6 +298,7 @@ def get_raw_turtle() -> str:
 
 
 def save_raw_turtle(raw_text: str) -> Tuple[bool, str]:
+    require_organization_admin()
     g = Graph()
     try:
         g.parse(data=raw_text, format="turtle")
@@ -246,7 +313,7 @@ def save_raw_turtle(raw_text: str) -> Tuple[bool, str]:
             validate_entity(g, subject)
     except ValueError as e:
         return False, f"スキーマ検証エラー: {e}"
-    TTL_PATH.write_text(raw_text, encoding="utf-8")
+    _write_turtle(raw_text)
     return True, "保存しました"
 
 
@@ -260,6 +327,7 @@ def get_wiki_content(entity_id: str) -> str:
 
 
 def save_wiki_content(entity_id: str, content: str):
+    check_wiki_permissions(entity_id)
     ensure_dirs()
     clean_id = entity_id.strip().lstrip(":")
     fname = f"{safe_filename(clean_id)}.md"
@@ -498,6 +566,8 @@ def upsert_entity_with_relations(
         g.remove((None, RITOU['参加関係'], s_node))
         for activity in g.objects(s_node, RITOU['活動']):
             g.add((activity, RITOU['参加関係'], s_node))
+    if wiki_content is not None:
+        check_wiki_permissions(clean_id)
     save_graph(g)
     if wiki_content is not None:
         save_wiki_content(clean_id, wiki_content)
@@ -585,6 +655,7 @@ def delete_entity(entity_id: str):
     for subject in affected:
         if any(True for _ in g.triples((subject, RDF.type, None))):
             validate_entity(g, subject)
+    check_wiki_permissions(clean_id)
     save_graph(g)
     save_wiki_content(clean_id, "")
 

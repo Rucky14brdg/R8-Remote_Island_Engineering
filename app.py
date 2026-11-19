@@ -1,9 +1,11 @@
 from pathlib import Path
 import json
+import os
+from secrets import compare_digest
 import re
 from typing import List, Dict, Optional, Literal
-from fastapi import FastAPI, HTTPException, File, UploadFile
-from fastapi.responses import HTMLResponse, PlainTextResponse, FileResponse, StreamingResponse
+from fastapi import FastAPI, HTTPException, File, UploadFile, Request
+from fastapi.responses import HTMLResponse, PlainTextResponse, FileResponse, StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -18,6 +20,56 @@ app = FastAPI(title="離島工学データベース（知識基盤）")
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
+
+
+def is_organization_admin(request: Request) -> bool:
+    scheme, _, credential = request.headers.get('Authorization', '').partition(' ')
+    if scheme.lower() != 'bearer' or not credential:
+        return False
+    local_hosts = {'localhost', '127.0.0.1', '::1'}
+    loopback = (request.client is not None and request.client.host in {'127.0.0.1', '::1'}
+                and request.url.hostname in local_hosts)
+    if request.url.scheme != 'https' and not loopback:
+        return False
+    secret = os.environ.get('RITOU_ADMIN_TOKEN', '')
+    credentials_directory = os.environ.get('CREDENTIALS_DIRECTORY')
+    if not secret and credentials_directory:
+        try:
+            secret = (Path(credentials_directory) / 'ritou-admin-token').read_text().strip()
+        except OSError:
+            return False
+    return len(secret) >= 32 and compare_digest(credential.encode(), secret.encode())
+
+
+class OrganizationPermissionsMiddleware:
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope['type'] != 'http':
+            await self.app(scope, receive, send)
+            return
+        permission = rdf_manager.can_manage_organizations.set(is_organization_admin(Request(scope)))
+        try:
+            await self.app(scope, receive, send)
+        finally:
+            rdf_manager.can_manage_organizations.reset(permission)
+
+
+app.add_middleware(OrganizationPermissionsMiddleware)
+
+
+@app.exception_handler(rdf_manager.OrganizationPermissionError)
+async def organization_permission_error(_request: Request, exc: rdf_manager.OrganizationPermissionError):
+    return JSONResponse(status_code=403, content={'detail': str(exc)})
+
+
+@app.get('/api/permissions')
+async def api_permissions():
+    admin = rdf_manager.can_manage_organizations.get()
+    return JSONResponse({'organization_admin': admin,
+                         'admin_entity_id': rdf_manager.ADMIN_ENTITY_ID if admin else None},
+                        headers={'Cache-Control': 'no-store'})
 
 
 class ParticipantInput(BaseModel):
@@ -48,7 +100,7 @@ class ProfileInput(BaseModel):
     summary: str = ""
     description: str = ""
     keywords: List[str] = []
-    affiliations: List[str] = []
+    affiliations: Optional[List[str]] = None
     statuses: List[str] = []
     external_links: List[str] = []
 
@@ -58,8 +110,10 @@ class OrganizationInput(BaseModel):
     name: str
     summary: str = ""
     description: str = ""
-    affiliations: List[str] = []
+    affiliations: Optional[List[str]] = None
     external_links: List[str] = []
+    member_ids: Optional[List[str]] = None
+    child_organization_ids: Optional[List[str]] = None
 
 
 class ActivityRecordInput(BaseModel):
@@ -255,6 +309,7 @@ async def api_schema():
 
 @app.post("/api/wiki")
 async def api_update_wiki(body: WikiUpdateInput):
+    rdf_manager.check_wiki_permissions(body.entity_id)
     if body.summary is not None:
         g = rdf_manager.load_graph()
         s_node = rdf_manager.URIRef(rdf_manager.BASE_URI + body.entity_id.strip().lstrip(":"))

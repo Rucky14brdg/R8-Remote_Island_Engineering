@@ -42,6 +42,19 @@
     <main id="main" tabindex="-1"><div class="loading">データを読み込んでいます…</div></main>
   </div>
   <div id="toast" class="toast" role="status" hidden></div>
+  <dialog id="organization-admin-dialog" aria-labelledby="organization-admin-title">
+    <form id="organization-admin-form">
+      <div class="dialog-header"><h2 id="organization-admin-title">管理者として認証</h2></div>
+      <div class="dialog-body">
+        <div id="organization-admin-error" class="form-error" role="alert" hidden></div>
+        <div class="field"><label for="organization-admin-token">管理者キー</label><input id="organization-admin-token" type="password" autocomplete="off" required></div>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" class="button" onclick="this.closest('dialog').close();">キャンセル</button>
+        <button id="organization-admin-submit" type="submit" class="button primary">認証する</button>
+      </div>
+    </form>
+  </dialog>
   <dialog id="profile-dialog" aria-labelledby="profile-dialog-title"><div id="profile-dialog-content"></div></dialog>
   <dialog id="record-dialog" aria-labelledby="record-dialog-title"><div id="record-dialog-content"></div></dialog>
   <dialog id="organize-dialog" aria-labelledby="organize-dialog-title"><div id="organize-dialog-content"></div></dialog>

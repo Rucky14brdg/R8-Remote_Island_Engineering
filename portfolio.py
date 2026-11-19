@@ -75,9 +75,11 @@ def save_profile(body):
     for key, value in [('表示名', body.display_name), ('肩書', body.headline),
                        ('概要', body.summary), ('研究キーワード', '\n'.join(body.keywords))]:
         _literal(g, node, key, value)
-    _relationships(g, node, '所属する', body.affiliations, 'Laboratory')
+    if body.affiliations is not None:
+        _relationships(g, node, '所属する', body.affiliations, 'Laboratory')
     _relationships(g, node, 'である', body.statuses, 'Status')
     _external_links(g, node, body.external_links)
+    db.check_wiki_permissions(db.node_to_id(node))
     _validate_and_save(g, [node])
     saved_id = db.node_to_id(node)
     db.save_wiki_content(saved_id, body.description)
@@ -85,6 +87,7 @@ def save_profile(body):
 
 
 def save_organization(body):
+    db.require_organization_admin()
     if not body.name.strip():
         raise ValueError('組織名を入力してください')
     g = db.load_graph()
@@ -94,9 +97,26 @@ def save_organization(body):
         raise ValueError('同名の組織が登録済みです。組織一覧から編集してください')
     _literal(g, node, 'タイトル', body.name)
     _literal(g, node, '概要', body.summary)
-    _relationships(g, node, '所属する', body.affiliations, 'Laboratory')
+    if body.affiliations is not None:
+        _relationships(g, node, '所属する', body.affiliations, 'Laboratory')
     _external_links(g, node, body.external_links)
-    _validate_and_save(g, [node])
+    touched = [node]
+    for ids, cls in ((body.member_ids, db.RITOU.User),
+                     (body.child_organization_ids, db.RITOU.Laboratory)):
+        if ids is None:
+            continue
+        membership = db.RITOU['所属する']
+        desired = {db.RITOU[_name(value)] for value in ids}
+        if any((item, RDF.type, cls) not in g for item in desired):
+            raise ValueError('登録済みの人物・組織を選択してください')
+        current = {item for item in g.subjects(membership, node)
+                   if (item, RDF.type, cls) in g}
+        for item in current - desired:
+            g.remove((item, membership, node))
+        for item in desired - current:
+            g.add((item, membership, node))
+        touched.extend(current ^ desired)
+    _validate_and_save(g, touched)
     saved_id = db.node_to_id(node)
     db.save_wiki_content(saved_id, body.description)
     return saved_id
@@ -182,6 +202,7 @@ def save_activity(body):
             for actor in list(g.subjects(db.RITOU[predicate], node)):
                 if db.node_to_id(actor) not in desired:
                     g.remove((actor, db.RITOU[predicate], node))
+    db.check_wiki_permissions(activity_id)
     _validate_and_save(g, touched)
     db.save_wiki_content(activity_id, body.description)
     return activity_id

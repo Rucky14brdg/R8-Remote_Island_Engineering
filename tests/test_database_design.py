@@ -58,12 +58,14 @@ class DatabaseDesignTests(unittest.TestCase):
         self.assertTrue(any(r['subject_id'] == '研究室' and r['predicate'] == '所属する' for r in entities['学科']['incoming']))
         self.assertNotIn('User', entities['研究室']['types'])
 
+    @patch.dict('os.environ', {'RITOU_ADMIN_TOKEN': 'test-key-' * 4})
     def test_organization_affiliations_api_replaces_only_membership(self):
         self.put('研究室', 'Laboratory', summary='保持する概要', wiki_content='保持する紹介',
                  relations=[self.relation('所属する', '旧組織'), self.relation('関連する', '旧組織')])
 
         async def check():
-            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test') as client:
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='https://test',
+                                         headers={'Authorization': 'Bearer ' + 'test-key-' * 4}) as client:
                 payload = dict(entity_id='研究室', entity_class='Laboratory',
                                relations=[self.relation('所属する', '大学'), self.relation('所属する', '連携組織')],
                                replace_predicates=['所属する'])

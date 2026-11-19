@@ -29,10 +29,9 @@ assert.match(html, /下位組織/);
 assert.match(html, /所属メンバー/);
 assert.match(html, /表示名&lt;&amp;&gt;/);
 assert.doesNotMatch(html, /edit-organization-affiliations/);
-vm.runInContext("openOrganizationAffiliations('研究室');",context);
-assert.equal(element('profile-dialog').open,true);
-assert.match(element('profile-dialog-content').innerHTML,/研究室が所属する組織/);
-assert.match(element('profile-dialog-content').innerHTML,/大学/);
+vm.runInContext("openOrganizationEditor('研究室');",context);
+assert.equal(element('profile-dialog').open,false);
+vm.runInContext("organizationAdminToken='test';",context);
 
 vm.runInContext(`
   data.users=[];data.articles=[];
@@ -62,7 +61,6 @@ assert.match(element('profile-dialog-content').innerHTML,/大学/);
 vm.runInContext("openOrganizationEditor();",context);
 assert.equal(vm.runInContext('profileDraft.entity_id',context),'');
 assert.match(element('profile-dialog-content').innerHTML,/組織を追加/);
-vm.runInContext("openOrganizationAffiliations('研究室');",context);
 console.log('Organization list, detail hierarchy, introduction, links, and create/edit form: OK');
 
 vm.runInContext(`
@@ -124,27 +122,7 @@ console.log('Japanese IME confirmation does not add chips; subsequent Enter adds
 (async()=>{
   vm.runInContext(`
     var captured;
-    request=async(url,payload)=>{captured={url,payload};};
     load=async()=>{};route=()=>{};notify=()=>{};
-    profileDraft.affiliations=['大学'];
-  `,context);
-  element('chip-affiliations').value='連携組織';
-  await vm.runInContext('saveOrganizationAffiliations({preventDefault(){}})',context);
-  assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(captured)',context)),{
-    url:'/api/entity',payload:{entity_id:'研究室',entity_class:'Laboratory',relations:[{predicate:'所属する',object:'大学'},{predicate:'所属する',object:'連携組織'}],replace_predicates:['所属する']}
-  });
-  assert.equal(element('profile-dialog').open,false);
-  vm.runInContext("openOrganizationAffiliations('研究室');profileDraft.affiliations=[];",context);
-  element('chip-affiliations').value='';
-  await vm.runInContext('saveOrganizationAffiliations({preventDefault(){}})',context);
-  assert.equal(vm.runInContext('captured.payload.relations.length',context),0);
-  vm.runInContext("openOrganizationAffiliations('研究室');request=async()=>{throw new Error('組織の所属が循環しています');};",context);
-  await vm.runInContext('saveOrganizationAffiliations({preventDefault(){}})',context);
-  assert.equal(element('profile-dialog').open,true);
-  assert.match(element('organization-affiliations-error').textContent,/循環/);
-  assert.equal(element('save-organization-affiliations').disabled,false);
-  console.log('Organization affiliation display, editing, clearing, and error recovery: OK');
-  vm.runInContext(`
     request=async(url,payload)=>{captured={url,payload};return {entity_id:'研究室'};};
     openOrganizationEditor('研究室');
   `,context);
@@ -154,7 +132,7 @@ console.log('Japanese IME confirmation does not add chips; subsequent Enter adds
     {dataset:{organizationKey:'external_links'},value:'https://example.org/one\nhttps://example.org/two'}
   ];
   document.querySelectorAll=selector=>selector==='#organization-form [data-organization-key]'?organizationFields:[];
-  element('chip-affiliations').value='連携団体';
+  element('chip-affiliations').value='';
   await vm.runInContext('saveOrganization({preventDefault(){}})',context);
   const saved=JSON.parse(vm.runInContext('JSON.stringify(captured)',context));
   assert.equal(saved.url,'/api/portfolio/organization');
@@ -162,7 +140,9 @@ console.log('Japanese IME confirmation does not add chips; subsequent Enter adds
   assert.equal(saved.payload.name,'変更した組織名');
   assert.equal(saved.payload.summary,'変更した概要');
   assert.equal(saved.payload.description,'');
-  assert.deepEqual(saved.payload.affiliations,['大学','連携団体']);
+  assert.deepEqual(saved.payload.affiliations,['大学']);
+  assert.deepEqual(saved.payload.member_ids,['個人']);
+  assert.deepEqual(saved.payload.child_organization_ids,['下位組織']);
   assert.deepEqual(saved.payload.external_links,['https://example.org/one','https://example.org/two']);
   assert.equal(context.location.hash,'#entity/'+encodeURIComponent('研究室'));
   assert.equal(element('profile-dialog').open,false);

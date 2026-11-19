@@ -205,6 +205,7 @@ def save_article(article_id, title, article_type, content, author=None, related_
     if article_type == '研究・実践記事' and not associations(g, node)['research']:
         raise ValueError('研究・実践記事には、知識を残す対象の研究・活動を紐付けてください')
     db.validate_entity(g, node)
+    db.check_graph_permissions(g)
     if exists:
         folder = db.DATA_DIR / 'article_history' / clean_id / (now.strftime('%Y%m%d_%H%M%S') + '_' + uuid4().hex[:8])
         folder.mkdir(parents=True)
