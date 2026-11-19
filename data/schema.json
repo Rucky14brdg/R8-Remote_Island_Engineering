@@ -28,6 +28,7 @@
       "description": "",
       "form_attributes": [
         "実施時期",
+        "進行状況",
         "背景条件"
       ]
     },
@@ -575,6 +576,11 @@
         "実施実績",
         "評価結果"
       ]
+    },
+    "進行状況": {
+      "domains": ["Research"],
+      "kind": "literal",
+      "enum": ["進行中", "終了"]
     },
     "実施時期": {
       "domains": [

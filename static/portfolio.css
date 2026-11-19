@@ -156,3 +156,7 @@ a.tag:hover{background:var(--soft);border-color:#aac9c4;color:var(--accent)}
 .detail-heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px}
 .detail-actions{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-left:auto;max-width:100%}
 @media(max-width:650px){.detail-heading{align-items:flex-start}.detail-actions{justify-content:flex-start;margin-left:0}.detail-actions .button{white-space:normal;text-align:left}}
+
+.activity-archive{margin-top:16px}
+.activity-archive>summary{cursor:pointer;color:var(--accent-dark);font-weight:600}
+.activity-archive[open]>summary{margin-bottom:12px}

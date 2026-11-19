@@ -84,6 +84,7 @@ class ActivityInput(BaseModel):
     summary: str = ""
     description: str = ""
     period: str = ""
+    status: Optional[Literal["進行中", "終了"]] = None
     goal: str = ""
     targets: List[str] = []
     issues: List[str] = []

@@ -185,6 +185,23 @@ class PortfolioInputTests(unittest.TestCase):
                 self.assertIn((node, db.RITOU['活動を表示する所属組織'], db.RITOU['学校']), graph)
         asyncio.run(check())
 
+    def test_activity_status_is_independent_of_period_and_old_updates_preserve_it(self):
+        legacy = db.upsert_entity_with_relations('legacy', 'Research', attributes={'実施時期': '2024年'})
+        status = db.RITOU['進行状況']
+        payload = {'entity_id': legacy, 'title': '既存の活動', 'period': '2024年'}
+        node = db.RITOU[legacy]
+        portfolio.save_activity(ActivityInput(**payload))
+        self.assertIsNone(db.load_graph().value(node, status))
+        portfolio.save_activity(ActivityInput(**payload, status='終了'))
+        portfolio.save_activity(ActivityInput(**payload))
+        graph = db.load_graph()
+        self.assertEqual('終了', str(graph.value(node, status)))
+        self.assertEqual('2024年', str(graph.value(node, db.RITOU['実施時期'])))
+        portfolio.save_activity(ActivityInput(**payload, status='進行中'))
+        self.assertEqual('進行中', str(db.load_graph().value(node, status)))
+        created = self.save()
+        self.assertEqual('進行中', str(db.load_graph().value(db.RITOU[created], status)))
+
     def test_title_only_is_enough_and_id_is_stable_when_renamed(self):
         aid = self.save()
         self.save(entity_id=aid, title='変更後の名称')

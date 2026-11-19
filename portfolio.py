@@ -148,7 +148,11 @@ def save_activity(body):
     g = db.load_graph()
     # 名称を変更しても、識別子と既存の関係を維持する。
     activity_id = _name(body.entity_id) if body.entity_id else 'research_' + uuid4().hex[:16]
+    existing = set(g.subjects(RDF.type, db.RITOU.Research))
     node = _reference(g, activity_id, 'Research')
+    is_new = node not in existing
+    if body.status is not None or is_new:
+        _literal(g, node, '進行状況', body.status or '進行中')
     for key, value in [('タイトル', body.title), ('概要', body.summary), ('実施時期', body.period)]:
         _literal(g, node, key, value)
     for predicate, values, cls in [('対象とする', body.targets, 'Target'),

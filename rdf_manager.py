@@ -594,6 +594,9 @@ def validate_entity(g: Graph, node):
     types = {node_to_id(t) for t in g.objects(node, RDF.type)}
     if not types or not types <= CLASS_INFO.keys():
         raise ValueError("スキーマに定義された種類を指定してください")
+    activity_status = list(g.objects(node, RITOU['進行状況']))
+    if activity_status and ('Research' not in types or len(activity_status) != 1):
+        raise ValueError('進行状況は研究・活動ごとに一つ指定してください')
     for p, o in g.predicate_objects(node):
         name = node_to_id(p)
         if p == RDF.type:

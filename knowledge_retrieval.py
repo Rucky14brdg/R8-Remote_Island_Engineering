@@ -185,6 +185,8 @@ def _entity_context(ent, retrieved, keywords):
     lines = [f"{reference_title(ent, by_id)} / 種類: {', '.join(ent.get('types', []))}"]
     participation = retrieved.get('research_participations', {}).get(ent['id'])
     if 'Research' in ent.get('types', []):
+        if not ent.get('literals', {}).get('進行状況'):
+            lines.append('進行状況: 未設定')
         lines.append('この研究の参加者・役割（RDFの研究別参加記録）:')
         if not participation or not participation.get('checked'):
             lines.append('今回未確認。記事の著者・所属から参加者を補わない。')
