@@ -640,6 +640,14 @@
       ],
       "kind": "literal"
     },
+    "基本情報タグ": {
+      "domains": ["User"],
+      "kind": "literal"
+    },
+    "固定基本情報タグ": {
+      "domains": ["User"],
+      "kind": "literal"
+    },
     "研究キーワード": {
       "domains": [
         "User"

@@ -228,7 +228,7 @@ def serialize_clean_turtle(g: Graph) -> str:
 ADMIN_ENTITY_ID = '石橋治樹'
 # Local maintenance calls are trusted. HTTP middleware sets the request's permission.
 can_manage_organizations = ContextVar('can_manage_organizations', default=True)
-ADMIN_REQUIRED = '組織・所属関係を変更するには管理者権限が必要です'
+ADMIN_REQUIRED = '組織・所属関係・プロフィールの基本情報の変更には管理者権限が必要です'
 
 
 class OrganizationPermissionError(Exception):
@@ -249,13 +249,22 @@ def check_graph_permissions(graph, *, profile_subject=None):
         return
     current = load_graph()
     protected = protected_entities(current) | protected_entities(graph)
+    for source in (current, graph):
+        protected.update(source.subjects(RDF.type, RITOU.Status))
     affiliation = RITOU['所属する']
     # Evidence and participation indexes also change when ordinary records are added.
     indexes = {RITOU['根拠記述'], RITOU['参加関係']}
     admin_node = RITOU[ADMIN_ENTITY_ID]
     profile_fields = {RITOU[key] for key in (
-        '肩書', '概要', '研究キーワード', 'である', '外部リンク', '活動を表示する所属組織'
+        '肩書', '概要', '研究キーワード', '基本情報タグ', '外部リンク', '活動を表示する所属組織'
     )}
+    people = set(current.subjects(RDF.type, RITOU.User)) | set(graph.subjects(RDF.type, RITOU.User))
+    for person in people:
+        for predicate in (RITOU['表示名'], RITOU['タイトル'], RITOU['である'], RITOU['固定基本情報タグ']):
+            if set(current.objects(person, predicate)) != set(graph.objects(person, predicate)):
+                raise OrganizationPermissionError(ADMIN_REQUIRED)
+        if (person, RDF.type, RITOU.User) in current and (person, RDF.type, RITOU.User) not in graph:
+            raise OrganizationPermissionError(ADMIN_REQUIRED)
     for candidate, other in ((current, graph), (graph, current)):
         if any(triple not in other for triple in candidate.triples((None, affiliation, None))):
             raise OrganizationPermissionError(ADMIN_REQUIRED)

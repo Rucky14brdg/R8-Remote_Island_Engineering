@@ -96,14 +96,16 @@ class ActivityInput(BaseModel):
 
 class ProfileInput(BaseModel):
     entity_id: str
-    display_name: str = ""
+    display_name: Optional[str] = None
     headline: str = ""
     summary: str = ""
     description: str = ""
+    basic_tags: Optional[List[str]] = None
+    fixed_basic_tags: Optional[List[str]] = None
     keywords: List[str] = []
     affiliations: Optional[List[str]] = None
     organization_project_ids: Optional[List[str]] = None
-    statuses: List[str] = []
+    statuses: Optional[List[str]] = None
     external_links: List[str] = []
 
 

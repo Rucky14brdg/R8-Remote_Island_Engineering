@@ -161,6 +161,60 @@ class PortfolioInputTests(unittest.TestCase):
                 self.assertIn((person, db.RITOU['所属する'], db.RITOU['学校']), graph)
         asyncio.run(check())
 
+    def test_fixed_and_editable_basic_tags(self):
+        person = db.RITOU['研究者A']
+        portfolio.save_profile(ProfileInput(entity_id='研究者A', fixed_basic_tags=['交換留学生']))
+        token = db.can_manage_organizations.set(False)
+        try:
+            for tags in (['学生会長', '部長', '学生会長'], None, []):
+                portfolio.save_profile(ProfileInput(entity_id='研究者A', basic_tags=tags))
+                graph = db.load_graph()
+                self.assertEqual(str(graph.value(person, db.RITOU['固定基本情報タグ'])), '交換留学生')
+                value = graph.value(person, db.RITOU['基本情報タグ'])
+                self.assertEqual(str(value) if value else None, None if tags == [] else '学生会長\n部長')
+            with self.assertRaises(db.OrganizationPermissionError):
+                portfolio.save_profile(ProfileInput(entity_id='研究者A', fixed_basic_tags=[]))
+        finally:
+            db.can_manage_organizations.reset(token)
+
+    def test_person_can_edit_headline_but_not_basic_information(self):
+        profile = ProfileInput(entity_id='研究者A', display_name='氏名', statuses=['学生'], affiliations=['学校'])
+        portfolio.save_profile(profile)
+        token = db.can_manage_organizations.set(False)
+        try:
+            portfolio.save_profile(ProfileInput(entity_id='研究者A', headline='学生会長、マイコン部部長'))
+            for change in ({'display_name': '別人'}, {'statuses': []}, {'affiliations': []}):
+                with self.subTest(change=change), self.assertRaises(db.OrganizationPermissionError):
+                    portfolio.save_profile(ProfileInput(entity_id='研究者A', **change))
+            with self.assertRaises(db.OrganizationPermissionError):
+                db.upsert_entity_with_relations('研究者A', 'User', attributes={'表示名': '別人'})
+            graph = db.load_graph()
+            person = db.RITOU['研究者A']
+            self.assertEqual('学生会長、マイコン部部長', str(graph.value(person, db.RITOU['肩書'])))
+            self.assertIn((person, db.RITOU['である'], db.RITOU['学生']), graph)
+            self.assertIn((person, db.RITOU['所属する'], db.RITOU['学校']), graph)
+        finally:
+            db.can_manage_organizations.reset(token)
+
+    @patch.dict('os.environ', {'RITOU_ADMIN_TOKEN': 'test-key-' * 4})
+    def test_admin_can_change_profile_identity_status_and_membership(self):
+        portfolio.save_profile(ProfileInput(entity_id=db.ADMIN_ENTITY_ID, statuses=['学生']))
+        async def check():
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='https://test') as client:
+                payload = {'entity_id': db.ADMIN_ENTITY_ID, 'display_name': '新しい表示名',
+                           'statuses': ['教員'], 'affiliations': ['情報工学科']}
+                denied = await client.post('/api/portfolio/profile', json=payload)
+                self.assertEqual(denied.status_code, 403)
+                saved = await client.post('/api/portfolio/profile', json=payload,
+                                          headers={'Authorization': 'Bearer ' + 'test-key-' * 4})
+                self.assertEqual(saved.status_code, 200, saved.text)
+                graph = db.load_graph()
+                node = db.RITOU[db.ADMIN_ENTITY_ID]
+                self.assertEqual(set(graph.objects(node, db.RITOU['である'])), {db.RITOU['教員']})
+                self.assertEqual(set(graph.objects(node, db.RITOU['所属する'])), {db.RITOU['情報工学科']})
+                self.assertEqual(str(graph.value(node, db.RITOU['表示名'])), '新しい表示名')
+        asyncio.run(check())
+
     def test_admin_public_profile_can_be_saved_without_changing_identity_or_membership(self):
         admin_id = db.ADMIN_ENTITY_ID
         db.upsert_entity_with_relations(admin_id, 'User', attributes={'表示名': admin_id},

@@ -275,13 +275,17 @@
           <div class="md:col-span-4 space-y-3">
             <div>
               <label class="block text-xs text-slate-600 mb-1">所属研究室・組織</label>
-              <input type="text" id="mp-lab" list="datalist-Laboratory" placeholder="例: 田房研究室"
+              <input type="text" id="mp-lab" readonly placeholder="例: 田房研究室"
                 class="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-300 focus:bg-white focus:outline-none focus:border-slate-900" />
             </div>
             <div>
-              <label class="block text-xs text-slate-600 mb-1">身分・立場</label>
-              <input type="text" id="mp-status" list="datalist-Status" placeholder="例: 学生 / 教員"
+              <label class="block text-xs text-slate-600 mb-1">身分（管理者設定）</label>
+              <input type="text" id="mp-status" readonly placeholder="例: 学生 / 教員"
                 class="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-300 focus:bg-white focus:outline-none focus:border-slate-900" />
+            </div>
+            <div>
+              <label for="mp-headline" class="block text-xs text-slate-600 mb-1">肩書</label>
+              <input id="mp-headline" class="w-full px-3 py-1.5 border rounded" placeholder="例：学生会長、マイコン部部長" />
             </div>
             <div>
               <label class="block text-xs text-slate-600 mb-1">外部リンク (GitHub等, カンマ区切り)</label>
@@ -970,6 +974,7 @@
         [labs.join(", "), statuses.join(", ")].filter(Boolean).join(" / ") || "所属・身分未設定";
 
       document.getElementById("mp-lab").value = labs.join(", ");
+      document.getElementById("mp-headline").value = userEnt?.literals["肩書"]?.[0] || "";
       document.getElementById("mp-status").value = statuses.join(", ");
       document.getElementById("mp-extlinks").value = exts.join(", ");
       document.getElementById("mp-wiki").value = (userEnt && userEnt.wiki_content) || "";
@@ -1024,34 +1029,20 @@
     async function handleSaveMyProfile(e) {
       e.preventDefault();
       if (!currentUser) return;
-      const labs = document.getElementById("mp-lab").value.split(",").map(s => s.trim()).filter(Boolean);
-      const statuses = document.getElementById("mp-status").value.split(",").map(s => s.trim()).filter(Boolean);
-      const exts = document.getElementById("mp-extlinks").value.split(",").map(s => s.trim()).filter(Boolean);
-      const wiki = document.getElementById("mp-wiki").value;
-
-      const userEnt = appData.entities.find(x => x.id === currentUser);
-      const existingResearch = userEnt
-        ? userEnt.outgoing.filter(o => ["扱う", "担当する"].includes(o.predicate)).map(o => ({ predicate: "担当する", object: o.object_id }))
-        : [];
-
-      const relations = [
-        ...labs.map(l => ({ predicate: "所属する", object: l })),
-        ...statuses.map(s => ({ predicate: "である", object: s })),
-        ...existingResearch,
-      ];
-
-      await fetch("/api/entity", {
+      const user = appData.entities.find(entity => entity.id === currentUser);
+      const response = await fetch("/api/portfolio/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           entity_id: currentUser,
-          entity_class: "User",
-          wiki_content: wiki,
-          relations,
-          external_links: exts,
-          replace_predicates: ["所属する", "である", "扱う", "担当する"],
+          headline: document.getElementById("mp-headline").value,
+          summary: user?.literals["概要"]?.[0] || "",
+          keywords: (user?.literals["研究キーワード"] || []).flatMap(value => value.split("\n")),
+          description: document.getElementById("mp-wiki").value,
+          external_links: document.getElementById("mp-extlinks").value.split(",").map(value => value.trim()).filter(Boolean),
         })
       });
+      if (!response.ok) return showToast("プロフィールを保存できませんでした");
       showToast("プロフィールを更新しました");
       await loadAllData();
     }

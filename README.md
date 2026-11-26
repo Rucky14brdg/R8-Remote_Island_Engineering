@@ -2,9 +2,13 @@
 
 離島の地域課題、研究・実践、技術、人物・組織、記事を関連付けて管理する知識基盤です。FastAPIとRDF（Turtle形式）を使い、ブラウザから情報の閲覧・編集・検索ができます。AIによる探索はローカルのOllamaに接続します。
 
-## 起動
+## サーバーの起動
 
-Python 3.10以上を用意し、リポジトリのルートで実行します。
+サーバーを動かすPCで、`app.py` があるフォルダをターミナルで開きます。同じLAN内の別端末は、ブラウザだけで利用できます。
+
+### 初回の準備
+
+Python 3.10以上を用意し、次のコマンドを一度実行します。このフォルダでセットアップ済みの場合は「普段の起動」へ進んでください。
 
 ```sh
 python3 -m venv .venv
@@ -12,18 +16,35 @@ source .venv/bin/activate
 python -m pip install -r requirements.txt
 ```
 
-起動するたびに、リポジトリのルートで実行します。
+### 普段の起動（同じLAN内で使う）
+
+すでに `python app.py` が動いている場合は、そのターミナルで Ctrl+C を押して停止します。次のコマンドでLANからの接続を受け付けます。
 
 ```sh
 source .venv/bin/activate
-python app.py
+
+# 管理者キーを設定している場合は、このフォルダの .env を読み込む
+if [ -f .env ]; then
+  set -a
+  source .env
+  set +a
+fi
+
+python -m uvicorn app:app --host 0.0.0.0 --port 8000
 ```
 
-サーバーを停止するには、起動したターミナルで Ctrl+C を押します。
+利用中はこのターミナルを開いたままにします。終了するときは Ctrl+C を押します。
 
-管理者キーを `.env` に設定している場合は、起動前に `RITOU_ADMIN_TOKEN` を環境変数として読み込みます。`.env` がシェルで読み込める形式であれば、`set -a`、`source .env`、`set +a` の順に実行します。
+### ブラウザで開く
 
-ブラウザで <http://127.0.0.1:8000> を開きます。APIドキュメントは <http://127.0.0.1:8000/docs> です。初回のデータ読み込み時に、ローカル保存用ディレクトリと初期データが生成されます。既存の研究データはリポジトリに含まれません。
+- **サーバー側のPC**では <http://127.0.0.1:8000> を開きます。管理者認証はこのアドレスから行えます。APIドキュメントは <http://127.0.0.1:8000/docs> にあります。
+- **同じLAN内の別端末**では、サーバー側のPCのLANアドレスを使います。例えばアドレスが `172.17.4.253` なら、別端末のブラウザに `http://172.17.4.253:8000` と入力します。Linuxでは、サーバー側の別のターミナルで `hostname -I` を実行すると現在のIPアドレスを確認できます。
+
+サーバー側のPCだけで使う場合は、上の起動コマンドの最後の1行を `python app.py` に変更します。
+
+初回のデータ読み込み時に、ローカル保存用ディレクトリと初期データが生成されます。既存の研究データはリポジトリに含まれません。
+
+### AI機能を使う場合
 
 AI機能を使う場合は、別途Ollamaをインストールし、起動した状態で生成モデルを取得します。
 
@@ -44,7 +65,7 @@ Ollamaの接続先は `http://127.0.0.1:11434`（環境変数 `OLLAMA_BASE_URL` 
 | `knowledge_*.py` / `sparql_search.py` / `llm_agent.py` | 検索・AI探索 |
 | `templates/` / `static/` | 画面、JavaScript、CSS、同梱ライブラリ |
 | `data/schema.json` | 共有するデータ設計 |
-| `docs/` | 設計・機能の説明 |大丈夫です
+| `docs/` | 設計・機能の説明 |
 | `tests/` | PythonとJavaScriptのテスト |
 
 ## データの保管
@@ -70,21 +91,6 @@ node tests/organization_affiliations.cjs
 node tests/issue_map_selection.cjs
 node tests/island_ai.cjs
 ```
-
-## 変更をGitHubへ保存
-
-このフォルダで編集したあと、次を実行します。コミット前に差分と追加ファイルを確認してください。
-
-```sh
-git status
-git diff
-git add .
-git diff --cached --stat
-git commit -m "変更内容を書く"
-git push
-```
-
-別のPCで更新した内容を取り込む際は、手元の変更をコミットしてから `git pull --ff-only` を実行します。
 
 ## 同梱ライブラリ
 

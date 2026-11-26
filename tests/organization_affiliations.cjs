@@ -160,5 +160,31 @@ console.log('Japanese IME confirmation does not add chips; subsequent Enter adds
   assert.equal(element('profile-dialog').open,true);
   console.log('Pending invalid affiliation is rejected before save: OK');
 
+  vm.runInContext("data.entities.push({id:'学生',types:['Status'],outgoing:[],literals:{}},{id:'教員',types:['Status'],outgoing:[],literals:{}})",context);
+  for (const admin of [true,false]) {
+    const field=vm.runInContext(`organizationAdminToken=${admin?"'test'":"''"};profileTagField('headline',{statuses:['学生'],headline:'学生会長'})`,context);
+    assert.match(field, />肩書<\/label>/);
+    assert.match(field, /学生/);
+    assert.doesNotMatch(field, /<option value="学生"| list="/);
+    assert.equal(field.includes('<option value="教員"'),admin);
+    assert.match(field, /学生会長<button/);
+    assert.equal(field.includes('data-profile-remove="statuses"'),admin);
+    assert.equal((field.match(/<input /g)||[]).length,1);
+  }
+
+  context.location.hostname='127.0.0.1';
+  context.location.protocol='http:';
+  vm.runInContext("openProfile('個人')",context);
+  assert.match(element('profile-dialog-content').innerHTML,/管理者として認証して編集/);
+  element('profile-tag-headline').value='編集中の肩書';
+  element('profile-tag-membership').value='入力中の所属';
+  context.fetch=async()=>({ok:true,json:async()=>({organization_admin:true})});
+  element('organization-admin-token').value='test';
+  await vm.runInContext('authenticateOrganizationAdmin({preventDefault(){}})',context);
+  assert.match(element('profile-field-headline').innerHTML,/data-profile-add="headline"/);
+  assert.match(element('profile-field-headline').innerHTML,/編集中の肩書/);
+  assert.match(element('profile-field-membership').innerHTML,/data-profile-remove="affiliations"/);
+  assert.match(element('profile-field-membership').innerHTML,/入力中の所属/);
+  assert.equal(element('profile-name').readOnly,false);
 
 })().catch(error=>{console.error(error);process.exitCode=1;});

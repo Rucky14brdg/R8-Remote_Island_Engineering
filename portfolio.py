@@ -72,16 +72,19 @@ def _validate_and_save(g, nodes):
 def save_profile(body):
     g = db.load_graph()
     node = _reference(g, body.entity_id, 'User')
-    fixed_identity = node == db.RITOU[db.ADMIN_ENTITY_ID] and not db.can_manage_organizations.get()
-    if fixed_identity:
-        display_name = str(g.value(node, db.RITOU['表示名']) or db.ADMIN_ENTITY_ID)
-        if body.display_name.strip() not in {'', display_name}:
+    if not db.can_manage_organizations.get():
+        display_name = str(g.value(node, db.RITOU['表示名']) or db.node_to_id(node))
+        if body.display_name is not None and body.display_name.strip() not in {'', display_name}:
             db.require_organization_admin()
-    else:
+    elif body.display_name is not None:
         _literal(g, node, '表示名', body.display_name)
     for key, value in [('肩書', body.headline), ('概要', body.summary),
                        ('研究キーワード', '\n'.join(body.keywords))]:
         _literal(g, node, key, value)
+    for key, tags in [('基本情報タグ', body.basic_tags), ('固定基本情報タグ', body.fixed_basic_tags)]:
+        if tags is not None:
+            values = dict.fromkeys(tag.strip() for tag in tags if tag.strip())
+            _literal(g, node, key, '\n'.join(values))
     if body.affiliations is not None:
         _relationships(g, node, '所属する', body.affiliations, 'Laboratory')
     preference = db.RITOU['活動を表示する所属組織']
@@ -96,7 +99,8 @@ def save_profile(body):
     elif body.affiliations is not None:
         for org in set(g.objects(node, preference)) - memberships:
             g.remove((node, preference, org))
-    _relationships(g, node, 'である', body.statuses, 'Status')
+    if body.statuses is not None:
+        _relationships(g, node, 'である', body.statuses, 'Status')
     _external_links(g, node, body.external_links)
     saved_id = db.node_to_id(node)
     db.check_wiki_permissions(saved_id, profile_subject=node)
