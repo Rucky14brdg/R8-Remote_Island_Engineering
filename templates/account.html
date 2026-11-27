@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>アカウント | 離島工学DB</title>
+  <link rel="stylesheet" href="/static/portfolio.css">
+  <script defer src="/static/account.js?v=name-search"></script>
+</head>
+<body>
+<main class="page editor-page">
+  <div class="editor-heading">
+    <a class="back-link" href="/">離島工学DBに戻る</a>
+    <h1>アカウント</h1>
+  </div>
+  <p id="account-feedback" role="status" aria-live="polite"></p>
+  <div id="signed-out" class="stack" hidden>
+    <form method="post" id="login" class="panel form-section stack">
+      <h2>ログイン</h2>
+      <label class="field">ログインID<input name="login_id" autocomplete="username" maxlength="32" required></label>
+      <label class="field">パスワード<input type="password" name="password" autocomplete="current-password" required maxlength="128"></label>
+      <div><button class="button primary">ログイン</button></div>
+    </form>
+    <form method="post" id="register" class="panel form-section stack">
+      <h2>新規登録</h2>
+      <label class="field">ログインID
+        <input name="login_id" autocomplete="username" minlength="3" maxlength="32" aria-describedby="registration-id-hint" required>
+      </label>
+      <p id="registration-id-hint" class="fine">割り振られた学籍番号を使ってください（例 i22002）。</p>
+      <a id="open-ishibashi-setup" class="back-link" href="#admin-section" hidden>i22002 の初期設定を開く</a>
+      <label class="field">パスワード
+        <input type="password" name="password" autocomplete="new-password" minlength="12" maxlength="128" aria-describedby="registration-password-hint" required>
+      </label>
+      <p id="registration-password-hint" class="fine">12文字以上で、半角の大文字・小文字・数字・記号のうち3種類以上含めてください。</p>
+      <div><button class="button primary">登録する</button></div>
+    </form>
+  </div>
+  <div id="signed-in" class="stack" hidden>
+    <section class="panel form-section stack">
+      <h2>ログイン中</h2>
+      <p id="account-login-id"></p>
+      <a id="profile-link" class="back-link" hidden>自分のプロフィールを開く</a>
+      <div><button id="logout" class="button">ログアウト</button></div>
+    </section>
+    <section id="claim-section" class="panel form-section stack" hidden>
+      <h2>人物プロフィールの紐づけ</h2>
+      <p>氏名で検索し、所属や肩書を確認してください。対応する人物がいなければ、新しい人物プロフィールを申請できます。</p>
+      <p id="claim-status" class="fine"></p>
+      <form id="search-people" class="stack">
+        <label class="field">氏名<input type="search" name="q" maxlength="100" required></label>
+        <div><button class="button">検索</button></div>
+      </form>
+      <form method="post" id="claim" class="stack">
+        <fieldset class="field">
+          <legend>申請するプロフィール</legend>
+          <div id="person-options" class="stack"></div>
+          <label><input type="radio" name="person_id" value="" required> 新しい人物プロフィールを作成する</label>
+        </fieldset>
+        <label id="new-name" class="field" hidden>登録する氏名<input name="name" maxlength="100"></label>
+        <div><button class="button primary">管理者に申請する</button></div>
+      </form>
+    </section>
+  </div>
+  <details class="panel form-section" id="admin-section">
+    <summary>管理者設定</summary>
+    <form method="post" id="admin" class="stack">
+      <label class="field">管理者キー<input type="password" name="token" autocomplete="off" required></label>
+      <div><button class="button">管理者として認証</button></div>
+    </form>
+    <form method="post" id="setup-ishibashi" class="stack" hidden>
+      <h3>石橋治樹の初期設定（ログインID i22002）</h3>
+      <label class="field">初回パスワード
+        <input type="password" name="password" autocomplete="new-password" minlength="12" maxlength="128" aria-describedby="setup-password-hint" required>
+      </label>
+      <p id="setup-password-hint" class="fine">12文字以上で、半角の大文字・小文字・数字・記号のうち3種類以上含めてください。</p>
+      <div><button class="button">パスワードを設定する</button></div>
+      <p id="setup-status" role="status"></p>
+    </form>
+    <h3 id="claims-heading" hidden>人物プロフィールの紐づけ申請</h3>
+    <div id="claim-list" class="stack"></div>
+  </details>
+</main>
+</body>
+</html>

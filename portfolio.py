@@ -188,12 +188,26 @@ def save_activity(body):
             if participant.actor_class not in {'User', 'Laboratory', 'ActorGroup'}:
                 raise ValueError('メンバーの種類が不正です')
             name = _name(participant.name)
-            if name in desired:
-                raise ValueError('同じメンバーは一つの行にまとめてください')
             if not participant.role.strip():
                 raise ValueError('メンバーの役割を入力してください')
-            actor = _reference(g, name, participant.actor_class)
-            desired[name] = (actor, participant.role.strip())
+            new_person_id = getattr(participant, 'new_person_id', None)
+            if new_person_id:
+                if participant.actor_class != 'User' or not name or len(name) > 100:
+                    raise ValueError('新しい人物の氏名を100文字以内で入力してください')
+                actor = db.RITOU[new_person_id]
+                if any(g.predicate_objects(actor)):
+                    if ((actor, RDF.type, db.RITOU.User) not in g
+                            or g.value(actor, db.RITOU['表示名']) != Literal(name)):
+                        raise ValueError('追加する人物の識別子がすでに使われています')
+                else:
+                    g.add((actor, RDF.type, db.RITOU.User))
+                    _literal(g, actor, '表示名', name)
+            else:
+                actor = _reference(g, name, participant.actor_class)
+            actor_id = db.node_to_id(actor)
+            if actor_id in desired:
+                raise ValueError('同じメンバーは一つの行にまとめてください')
+            desired[actor_id] = (actor, participant.role.strip())
             touched.append(actor)
         existing = list(g.subjects(db.RITOU['活動'], node))
         by_actor = {}

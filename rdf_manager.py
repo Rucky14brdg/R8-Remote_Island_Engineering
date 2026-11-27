@@ -228,6 +228,8 @@ def serialize_clean_turtle(g: Graph) -> str:
 ADMIN_ENTITY_ID = '石橋治樹'
 # Local maintenance calls are trusted. HTTP middleware sets the request's permission.
 can_manage_organizations = ContextVar('can_manage_organizations', default=True)
+profile_session = ContextVar('profile_session', default=None)
+PROFILE_OWNER_REQUIRED = 'このプロフィールを編集できるのは、紐づけ済みの本人または管理者です'
 ADMIN_REQUIRED = '組織・所属関係・プロフィールの基本情報の変更には管理者権限が必要です'
 
 
@@ -258,10 +260,21 @@ def check_graph_permissions(graph, *, profile_subject=None):
     profile_fields = {RITOU[key] for key in (
         '肩書', '概要', '研究キーワード', '基本情報タグ', '外部リンク', '活動を表示する所属組織'
     )}
+    from accounts import profile_ownership
+    linked, owned = profile_ownership(profile_session.get())
+    for person in linked - {owned if owned == profile_subject else None}:
+        if any(set(current.objects(person, field)) != set(graph.objects(person, field))
+               for field in profile_fields):
+            raise OrganizationPermissionError(PROFILE_OWNER_REQUIRED)
     people = set(current.subjects(RDF.type, RITOU.User)) | set(graph.subjects(RDF.type, RITOU.User))
     for person in people:
         for predicate in (RITOU['表示名'], RITOU['タイトル'], RITOU['である'], RITOU['固定基本情報タグ']):
-            if set(current.objects(person, predicate)) != set(graph.objects(person, predicate)):
+            before = set(current.objects(person, predicate))
+            after = set(graph.objects(person, predicate))
+            is_new_person = (person, RDF.type, RITOU.User) not in current and re.fullmatch(
+                r'person_[0-9a-f]{32}', node_to_id(person)
+            )
+            if before != after and not (is_new_person and predicate == RITOU['表示名'] and not before):
                 raise OrganizationPermissionError(ADMIN_REQUIRED)
         if (person, RDF.type, RITOU.User) in current and (person, RDF.type, RITOU.User) not in graph:
             raise OrganizationPermissionError(ADMIN_REQUIRED)
@@ -284,6 +297,11 @@ def check_wiki_permissions(entity_id, *, profile_subject=None):
         filename = safe_filename(entity_id)
         graph = load_graph()
         protected = protected_entities(graph)
+        from accounts import profile_ownership
+        linked, owned = profile_ownership(profile_session.get())
+        if any(safe_filename(node_to_id(node)) == filename
+               for node in linked if node != owned or node != profile_subject):
+            raise OrganizationPermissionError(PROFILE_OWNER_REQUIRED)
         admin_node = RITOU[ADMIN_ENTITY_ID]
         if entity_id == ADMIN_ENTITY_ID and profile_subject == admin_node and (
             admin_node, RDF.type, RITOU.Laboratory

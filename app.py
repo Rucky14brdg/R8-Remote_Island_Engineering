@@ -5,6 +5,8 @@ from secrets import compare_digest
 import re
 from typing import List, Dict, Optional, Literal
 from fastapi import FastAPI, HTTPException, File, UploadFile, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.responses import HTMLResponse, PlainTextResponse, FileResponse, StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -15,6 +17,7 @@ import portfolio
 import articles
 import activity_records
 import issues
+import accounts
 
 app = FastAPI(title="離島工学データベース（知識基盤）")
 
@@ -49,14 +52,27 @@ class OrganizationPermissionsMiddleware:
         if scope['type'] != 'http':
             await self.app(scope, receive, send)
             return
-        permission = rdf_manager.can_manage_organizations.set(is_organization_admin(Request(scope)))
+        request = Request(scope)
+        permission = rdf_manager.can_manage_organizations.set(is_organization_admin(request))
+        token = rdf_manager.profile_session.set(
+            request.cookies.get(accounts.COOKIE) if request.headers.get('X-Ritou-Account') == '1' else None
+        )
         try:
             await self.app(scope, receive, send)
         finally:
+            rdf_manager.profile_session.reset(token)
             rdf_manager.can_manage_organizations.reset(permission)
 
 
 app.add_middleware(OrganizationPermissionsMiddleware)
+app.include_router(accounts.router)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error(request: Request, exc: RequestValidationError):
+    if request.url.path.startswith('/api/account/'):
+        return JSONResponse(status_code=422, content={'detail': '入力内容を確認してください'})
+    return await request_validation_exception_handler(request, exc)
 
 
 @app.exception_handler(rdf_manager.OrganizationPermissionError)
@@ -76,6 +92,7 @@ class ParticipantInput(BaseModel):
     name: str
     role: str = "担当"
     actor_class: str = "User"
+    new_person_id: Optional[str] = Field(default=None, pattern=r"^person_[0-9a-f]{32}$")
 
 
 class ActivityInput(BaseModel):
@@ -237,6 +254,12 @@ async def index():
         return f'{match.group(1)}?v={path.stat().st_mtime_ns}"'
     html = re.sub(r'((?:src|href)="/static/([^"?]+))(?:\?[^"\s]*)?"', asset_version, html)
     return HTMLResponse(content=html, headers={'Cache-Control':'no-cache'})
+
+
+@app.get("/account", response_class=HTMLResponse)
+async def account_page():
+    return HTMLResponse((TEMPLATES_DIR / "account.html").read_text(encoding="utf-8"),
+                        headers={"Cache-Control": "no-store"})
 
 
 @app.get("/advanced", response_class=HTMLResponse)
